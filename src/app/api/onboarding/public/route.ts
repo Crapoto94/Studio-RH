@@ -1,0 +1,336 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/db'
+import { randomUUID } from 'crypto'
+import { sendEmailWithTemplate } from '@/lib/api-ville'
+
+// GET: Récupère les infos pour le formulaire manager via son token
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const token = searchParams.get('token')
+
+    if (!token) {
+      return NextResponse.json({ error: 'Token manquant' }, { status: 400 })
+    }
+
+    console.log(`[ONBOARDING-PUBLIC-DEBUG] Recherche Token: ${token}`);
+
+    // Recherche du dossier Onboarding
+    const onboarding = await (prisma.onboarding as any).findFirst({
+      where: { token_formulaire: token }
+    })
+
+    if (!onboarding) {
+      console.warn(`[ONBOARDING-PUBLIC-WARN] Token non trouvé: ${token}`);
+      return NextResponse.json({ error: 'Lien invalide ou expiré' }, { status: 404 })
+    }
+
+    // Récupérer les infos de l'agent si agent_id est présent (Bypass include)
+    let agent = null
+    if (onboarding.agent_id) {
+      agent = await prisma.refAgent.findUnique({
+        where: { id: onboarding.agent_id }
+      }) as any
+      // Enrichir avec le site de travail géographique depuis BRUT_RH
+      if (agent?.matricule) {
+        const brutRhRecord = await prisma.brutRh.findFirst({
+          where: { MATRICULE: agent.matricule },
+          select: { AFFECTGEO_L: true }
+        })
+        if (brutRhRecord?.AFFECTGEO_L) {
+          agent = { ...agent, affectgeo_l: brutRhRecord.AFFECTGEO_L }
+        }
+      }
+    }
+
+    // Récupérer la configuration
+    const configs = await prisma.parametre.findMany({
+      where: {
+        cle: { in: ['ONBOARDING_FORM_CONFIG', 'ONBOARDING_LISTS_CONFIG', 'ONBOARDING_SOFTWARE_CONFIG'] }
+      }
+    })
+    
+    // Extraction sécurisée
+    const configForm = configs.find(c => c.cle === 'ONBOARDING_FORM_CONFIG')?.valeur || '[]';
+    const configListsRaw = configs.find(c => c.cle === 'ONBOARDING_LISTS_CONFIG')?.valeur;
+    const configSoftwareRaw = configs.find(c => c.cle === 'ONBOARDING_SOFTWARE_CONFIG')?.valeur;
+    
+    let lists: any = {}
+    try {
+      if (configListsRaw) {
+        lists = JSON.parse(configListsRaw)
+      }
+    } catch (e) {
+      console.error('[ONBOARDING-PUBLIC-ERROR] JSON Parse Lists failed', e)
+    }
+
+    // LISTE DYNAMIQUE DES LOGICIELS (Basée sur le référentiel avec email)
+    if (configSoftwareRaw) {
+      try {
+        const softwareRepo = JSON.parse(configSoftwareRaw)
+        if (Array.isArray(softwareRepo)) {
+            const filtered = softwareRepo
+                .filter(s => s.email_createur && s.email_createur.trim() !== '')
+                .map(s => ({ nom: s.nom, description: s.description }))
+                .sort((a, b) => a.nom.localeCompare(b.nom))
+            
+            if (filtered.length > 0) {
+                lists.LIST_LOGICIELS_METIERS = filtered
+            }
+        }
+      } catch (e) {
+        console.error('[ONBOARDING-PUBLIC-ERROR] Software Repo parse failed', e)
+      }
+    }
+
+    // LISTE DYNAMIQUE DES DIRECTIONS & SERVICES
+    try {
+      const agents = await prisma.refAgent.findMany({
+        select: { nom_direction: true, nom_service: true },
+        where: { 
+            AND: [
+                { nom_direction: { not: null } },
+                { nom_direction: { not: '' } }
+            ]
+        }
+      })
+      
+      const dynamicDirections = new Set<string>()
+      const dictServices: Record<string, Set<string>> = {}
+
+      agents.forEach(a => {
+        if (!a.nom_direction) return
+        dynamicDirections.add(a.nom_direction)
+        
+        if (!dictServices[a.nom_direction]) dictServices[a.nom_direction] = new Set()
+        if (a.nom_service) dictServices[a.nom_direction].add(a.nom_service)
+      })
+      
+      const sortedDirections = Array.from(dynamicDirections).sort((a,b) => a.localeCompare(b))
+      if (sortedDirections.length > 0) {
+        lists.LIST_DIRECTIONS = sortedDirections
+      }
+
+      // Convert Sets to sorted Arrays for the frontend
+      const finalDictServices: Record<string, string[]> = {}
+      Object.keys(dictServices).forEach(dir => {
+        finalDictServices[dir] = Array.from(dictServices[dir]).sort((a,b) => a.localeCompare(b))
+      })
+      lists.dictServices = finalDictServices
+
+      // Fetch dynamic LIST_SITES from BRUT_RH
+      try {
+        const sitesRaw = await prisma.brutRh.findMany({
+          select: { AFFECTGEO_L: true },
+          where: { 
+            AND: [
+              { AFFECTGEO_L: { not: null } },
+              { AFFECTGEO_L: { not: '' } }
+            ]
+          },
+          distinct: ['AFFECTGEO_L']
+        })
+        const finalSites = Array.from(new Set(sitesRaw.map(s => s.AFFECTGEO_L?.trim()).filter(Boolean) as string[])).sort((a,b) => a.localeCompare(b))
+        if (finalSites.length > 0) {
+          lists.LIST_SITES = finalSites
+        }
+      } catch (err) {
+        console.warn('Failed to fetch LIST_SITES from BrutRh', err)
+      }
+
+    } catch (err) {
+      console.error('[ONBOARDING-PUBLIC-ERROR] Fetching dynamic hierarchy failed', err)
+    }
+
+    return NextResponse.json({
+      onboarding: { ...onboarding, agent },
+      config: configForm,
+      lists: lists
+    })
+
+  } catch (error: any) {
+    console.error('[ONBOARDING-PUBLIC-CRITICAL-ERROR] GET:', error)
+    return NextResponse.json({ 
+      error: 'Internal error', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+    }, { status: 500 })
+  }
+}
+
+// POST: Soumission du formulaire par le manager
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const { onboardingId, responses, action } = body
+
+    if (!onboardingId) {
+      return NextResponse.json({ error: 'Données manquantes' }, { status: 400 })
+    }
+
+    const id = parseInt(onboardingId)
+    if (isNaN(id)) {
+      return NextResponse.json({ error: 'ID invalide' }, { status: 400 })
+    }
+
+    // Gestion de l'annulation
+    if (action === 'cancel') {
+        const onboarding = await (prisma.onboarding as any).update({
+            where: { id: id },
+            data: { statut: 'annule' },
+            include: { agent: true }
+        })
+        
+        await prisma.audit.create({
+            data: {
+              action: 'ONBOARDING_CANCEL_MANAGER',
+              target: `Onboarding ID: ${id}`,
+              details: `Le manager a refusé l'onboarding pour ${onboarding.agent ? onboarding.agent.nom : onboarding.nom_temp}.`
+            }
+        }).catch(() => {})
+        
+        return NextResponse.json({ success: true, cancelled: true })
+    }
+    
+    // ... suite (responses obligatoires pour la validation standard)
+    if (!responses) {
+      return NextResponse.json({ error: 'Données manquantes' }, { status: 400 })
+    }
+
+    console.log(`[ONBOARDING-PUBLIC-DEBUG] Soumission Onboarding ID: ${id}`);
+
+    // 1. Mise à jour de l'onboarding
+    const onboarding = await (prisma.onboarding as any).update({
+      where: { id: id },
+      data: {
+        reponses_formulaire: JSON.stringify(responses),
+        statut: 'en_cours_realisation',
+        // Synchronisation des corrections d'identité et de structure
+        nom_temp: responses.nom_agent || undefined,
+        prenom_temp: responses.prenom_agent || undefined,
+        direction_temp: responses.direction || undefined,
+        service_temp: responses.service || undefined,
+        poste_temp: responses.intitule_poste || undefined,
+      },
+      include: { agent: true }
+    })
+
+    // 2. Génération des tâches via Workflow
+    const configParam = await prisma.parametre.findUnique({
+      where: { cle: 'ONBOARDING_WORKFLOW_CONFIG' }
+    })
+    
+    if (configParam && configParam.valeur) {
+      try {
+        const workflow = JSON.parse(configParam.valeur) 
+        if (Array.isArray(workflow)) {
+          const publicUrl = req.nextUrl.origin
+          const agentName = onboarding.agent 
+            ? `${onboarding.agent.prenom} ${onboarding.agent.nom}` 
+            : `${onboarding.prenom_temp} ${onboarding.nom_temp}`
+
+          const mailParam = await prisma.parametre.findUnique({ where: { cle: 'MAIL_MSG_WORKFLOW' } })
+          const bodyTemplate = mailParam?.valeur || "Bonjour, une tâche a été générée : {{TASK_NAME}} pour {{AGENT_NOM}}. Cliquez ici : {{ACKNOWLEDGE_URL}}"
+
+          for (const item of workflow) {
+            const taskToken = randomUUID()
+            const taskName = item.task || item.label || item.titre || 'Tâche'
+            
+            await (prisma.onboardingTask as any).create({
+              data: {
+                onboarding_id: onboarding.id,
+                titre: taskName,
+                responsable_mail: item.email || null,
+                delay_days: parseInt(item.delay || '0') || 0,
+                task_token: taskToken,
+                done: false
+              }
+            })
+
+            // Email au responsable
+            if (item.email) {
+              await sendEmailWithTemplate({
+                to: item.email,
+                subject: `📦 Nouvelle tâche Onboarding : ${taskName}`,
+                body: bodyTemplate,
+                onboarding_id: onboarding.id,
+                variables: {
+                  AGENT_NOM: agentName,
+                  TASK_NAME: taskName,
+                  VAL_URL: `${req.nextUrl.origin}/onboarding/task/acknowledge?token=${taskToken}`
+                }
+              }).catch(e => console.error(`[ONBOARDING-PUBLIC-ERROR] Mail fail to ${item.email}`, e))
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[ONBOARDING-PUBLIC-ERROR] Workflow execution failed', e)
+      }
+    }
+
+    // 3. Tâches dynamiques par logiciel
+    const softwareParam = await prisma.parametre.findUnique({
+      where: { cle: 'ONBOARDING_SOFTWARE_CONFIG' }
+    })
+    
+    if (softwareParam && softwareParam.valeur && Array.isArray(responses.logiciels_metiers)) {
+        try {
+            const softwareRepo = JSON.parse(softwareParam.valeur) as any[]
+            const selectedSoftwareNames = responses.logiciels_metiers as string[]
+            const mailParam = await prisma.parametre.findUnique({ where: { cle: 'MAIL_MSG_WORKFLOW' } })
+            const bodyTemplate = mailParam?.valeur || "Bonjour, une tâche a été générée : {{TASK_NAME}} pour {{AGENT_NOM}}. Cliquez ici : {{ACKNOWLEDGE_URL}}"
+            const agentName = onboarding.agent 
+                ? `${onboarding.agent.prenom} ${onboarding.agent.nom}` 
+                : `${onboarding.prenom_temp} ${onboarding.nom_temp}`
+
+            for (const swName of selectedSoftwareNames) {
+                const sw = softwareRepo.find(s => s.nom === swName)
+                if (sw && sw.email_createur) {
+                    const taskToken = randomUUID()
+                    const taskTitle = `Création de compte logiciel : ${sw.nom}`
+                    
+                    await (prisma.onboardingTask as any).create({
+                        data: {
+                            onboarding_id: onboarding.id,
+                            titre: taskTitle,
+                            responsable_mail: sw.email_createur,
+                            delay_days: 0,
+                            task_token: taskToken,
+                            done: false
+                        }
+                    })
+
+                    await sendEmailWithTemplate({
+                        to: sw.email_createur,
+                        subject: `📦 Accès Logiciel : ${sw.nom} (${agentName})`,
+                        body: bodyTemplate,
+                        onboarding_id: onboarding.id,
+                        variables: {
+                            AGENT_NOM: agentName,
+                            TASK_NAME: taskTitle,
+                            VAL_URL: `${req.nextUrl.origin}/onboarding/task/acknowledge?token=${taskToken}`
+                        }
+                    }).catch(e => console.error(`[ONBOARDING-PUBLIC-ERROR] Mail fail to ${sw.email_createur} for ${sw.nom}`, e))
+                }
+            }
+        } catch (e) {
+            console.error('[ONBOARDING-PUBLIC-ERROR] Software dynamic tasks failed', e)
+        }
+    }
+
+    // 4. Audit
+    await prisma.audit.create({
+      data: {
+        action: 'ONBOARDING_SUBMIT_MANAGER',
+        target: `Onboarding ID: ${id}`,
+        details: `Soumission manager ok pour ${onboarding.nom_temp || 'agent'}`
+      }
+    }).catch(() => {})
+
+    return NextResponse.json({ success: true })
+
+  } catch (error: any) {
+    console.error('[ONBOARDING-PUBLIC-CRITICAL-ERROR] POST:', error)
+    return NextResponse.json({ error: 'Internal error', details: error.message }, { status: 500 })
+  }
+}

@@ -1,0 +1,72 @@
+node_modules
+.next
+.env*
+# Databases (on autorise dev.db pour le déploiement auto)
+ *.db (Suppression de l'exclusion globale)
+*.db-journal
+dist
+build
+.DS_Store
+*.log
+
+# Scripts de debug temporaires
+check_*.js
+check_*.ts
+check_*.mjs
+check_*.cjs
+diag_*.mjs
+diag_*.js
+debug_*.js
+debug_*.log
+dbg_*.js
+dump_*.js
+dump_*.ts
+fetch_*.js
+find_*.js
+fix_*.js
+get_*.js
+get_*.ts
+inspect_*.js
+invoke_*.mjs
+list_*.js
+make_*.js
+probe_*.js
+read_*.js
+reset_*.ts
+restore_*.js
+save_*.ts
+scan_*.mjs
+seed_*.mjs
+seed_*.ts
+direct_reconstruct*.mjs
+final_check.js
+init_params.js
+update_config_agent.js
+update_half_width.js
+add_progress_col.ts
+import_software.ts
+diagnose_workflow.js
+
+# Fichiers de sortie de debug
+*.txt
+output*.json
+tables*.json
+form_config_parsed.json
+agent_info*.txt
+agent_info*.json
+api_routes.txt
+logs_output.txt
+swagger.json
+config.utf8
+full_config.json
+temp.js
+
+# Fichiers PDF et requêtes exportées
+*.pdf
+*.csv
+
+# tsconfig incremental build
+tsconfig.tsbuildinfo
+
+# Claude context
+.claude

@@ -1,0 +1,182 @@
+import { PageContainer } from '@/components/layout/PageContainer'
+import { Sidebar } from '@/components/layout/Sidebar'
+import { PageHeader } from '@/components/common/PageHeader'
+import { LayoutDashboard, Users, UserCheck, RefreshCw, AlertCircle } from 'lucide-react'
+import { prisma } from '@/lib/db'
+import { StatusBadge } from '@/components/common/StatusBadge'
+import { PositionsPieChart } from '@/components/dashboard/PositionsPieChart'
+
+export const dynamic = 'force-dynamic'
+
+// SSR logic for Dashboard
+async function getDashboardStats() {
+  const totalAgents = await prisma.refAgent.count()
+  
+  // Dynamic calculation based on settings
+  const params = await prisma.parametre.findMany()
+  const config = Object.fromEntries(params.map(p => [p.cle, p.valeur]))
+  const activePositions = (config['RH_POSITIONS_ACTIVES'] || '').split(',').filter(Boolean)
+
+  let activeAgents = totalAgents
+  if (activePositions.length > 0) {
+    // We use raw query to handle the dynamic list of positions
+    const posList = activePositions.map(p => `'${p.replace(/'/g, "''")}'`).join(',')
+    const activeData: any[] = await prisma.$queryRawUnsafe(`SELECT COUNT(*) as count FROM "REF_AGENTS" WHERE position_l IN (${posList})`)
+    activeAgents = Number(activeData[0]?.count || 0)
+  }
+  const now = new Date()
+
+  // Custom logic to compute active count (in production, complex queries might be used)
+  const allAgents = await prisma.refAgent.findMany({
+    select: { ad_id: true, azure_id: true }
+  })
+
+  const comptesAD = allAgents.filter((a: any) => a.ad_id).length
+  const comptesAzure = allAgents.filter((a: any) => a.azure_id).length
+
+  // Position distribution for Pie Chart
+  const posDistribution: any[] = await prisma.$queryRaw`
+    SELECT position_l, COUNT(*) as count 
+    FROM "REF_AGENTS" 
+    GROUP BY position_l 
+    ORDER BY count DESC
+  `
+
+  // Recent logs
+  const logs = await prisma.synchroLog.findMany({
+    take: 5,
+    orderBy: { created_at: 'desc' },
+  })
+
+  // Recent onboarding (sécurisé pour éviter les erreurs de colonnes manquantes)
+  const onboardings = await (prisma.onboarding as any).findMany({
+    select: {
+      id: true,
+      nom_temp: true,
+      prenom_temp: true,
+      statut: true,
+      created_at: true
+    },
+    take: 5,
+    orderBy: { created_at: 'desc' }
+  }).catch((err: any) => {
+    console.error("Dashboard Onboarding Load Error:", err)
+    return []
+  })
+
+  return {
+    totalAgents,
+    activeAgents,
+    activePositions,
+    comptesAD,
+    comptesAzure,
+    posDistribution: posDistribution.map(p => ({
+      name: p.position_l || 'Non spécifié',
+      value: Number(p.count)
+    })),
+    logs,
+    onboardings: onboardings || []
+  }
+}
+
+export default async function DashboardPage() {
+  const stats = await getDashboardStats()
+
+  return (
+    <div className="flex bg-[#f4f6fb] text-[#1a2340]">
+      <Sidebar />
+      <PageContainer title="Dashboard" subtitle="Vue d'ensemble RH Studio" className="pb-12">
+        {/* KPI Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <KpiCard title="Total Agents" value={stats.totalAgents} icon={Users} color="#6366f1" />
+          <KpiCard title="Agents Actifs" value={stats.activeAgents} icon={UserCheck} color="#0d9488" />
+          <KpiCard title="Comptes AD liés" value={stats.comptesAD} icon={RefreshCw} color="#d97706" />
+          <KpiCard title="Comptes Azure liés" value={stats.comptesAzure} icon={LayoutDashboard} color="#9333ea" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Middle Section: Onboarding */}
+          <div className="lg:col-span-2 glass-card p-6">
+            <h3 className="font-display font-semibold text-lg mb-4 text-slate-800">Activité Onboarding Récente</h3>
+            {stats.onboardings.length === 0 ? (
+              <p className="text-slate-500 text-sm">Aucune activité d'onboarding récente.</p>
+            ) : (
+              <div className="space-y-3">
+                {stats.onboardings.map((ob: any) => (
+                  <div key={ob.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
+                    <div>
+                      <span className="font-medium">{ob.agent?.nom || ob.nom_temp} {ob.agent?.prenom || ob.prenom_temp}</span>
+                      <span className="text-xs text-slate-500 block mt-0.5 ml-1">Statut: {ob.statut}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Positions Pie Chart */}
+          <div className="glass-card p-6 flex flex-col h-[400px]">
+            <h3 className="font-display font-semibold text-lg mb-4 text-slate-800">Répartition des Positions</h3>
+            <div className="flex-1 min-h-0">
+              <PositionsPieChart data={stats.posDistribution} activePositions={stats.activePositions} />
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Section: Logs */}
+        <div className="glass-card p-6">
+          <h3 className="font-display font-semibold text-lg mb-4 text-slate-800">Dernières Synchronisations</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="pb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider pl-2">Type</th>
+                  <th className="pb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
+                  <th className="pb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Statut</th>
+                  <th className="pb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.logs.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center text-slate-500 text-sm italic">Aucun log disponible</td>
+                  </tr>
+                ) : (
+                  stats.logs.map((log: any) => (
+                    <tr key={log.id} className="border-b border-slate-100 table-row-hover">
+                      <td className="py-3 pl-2 text-sm font-medium">{log.type.toUpperCase()}</td>
+                      <td className="py-3 text-sm text-slate-500">{new Date(log.created_at).toLocaleString('fr-FR')}</td>
+                      <td className="py-3 text-sm">
+                        <StatusBadge status={log.statut as any}>{log.statut}</StatusBadge>
+                      </td>
+                      <td className="py-3 text-sm text-slate-500 truncate max-w-sm">{log.message}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </PageContainer>
+    </div>
+  )
+}
+
+function KpiCard({ title, value, icon: Icon, color }: { title: string, value: number, icon: React.ElementType, color: string }) {
+  return (
+    <div className="glass-card p-5 relative overflow-hidden group">
+      <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-10 transition-transform group-hover:scale-110" style={{ backgroundColor: color }} />
+      <div className="flex items-center gap-4 relative z-10">
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${color}20`, color: color }}>
+          <Icon size={24} />
+        </div>
+        <div>
+          <h4 className="text-slate-500 text-sm font-medium mb-1">{title}</h4>
+          <span className="text-3xl font-display font-bold text-slate-800">{value.toLocaleString('fr-FR')}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
