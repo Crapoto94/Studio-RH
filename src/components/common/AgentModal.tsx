@@ -9,7 +9,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AgentAvatar } from './AgentAvatar'
 import { StatusBadge } from './StatusBadge'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatPrenom } from '@/lib/utils'
 
 interface AgentModalProps {
   agent: Agent | null
@@ -44,7 +44,7 @@ export function AgentModal({ agent, open, onOpenChange }: AgentModalProps) {
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <DialogTitle className="text-2xl font-bold text-slate-900 leading-tight">
-                {agent.nom} {agent.prenom}
+                {agent.nom?.toUpperCase()} {formatPrenom(agent.prenom)}
               </DialogTitle>
               <StatusBadge status={agent.actif ? 'success' : 'warning'} className="mt-0.5">
                 {agent.actif ? 'Actif' : 'Inactif'}
@@ -76,8 +76,8 @@ export function AgentModal({ agent, open, onOpenChange }: AgentModalProps) {
           <div className="p-6 h-[500px] overflow-y-auto">
             <TabsContent value="general" className="mt-0">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-7 py-2">
-                    <InfoBlock label="NOM" value={agent.nom} bold />
-                    <InfoBlock label="PRENOM" value={agent.prenom} bold />
+                    <InfoBlock label="NOM" value={agent.nom?.toUpperCase()} bold />
+                    <InfoBlock label="PRENOM" value={formatPrenom(agent.prenom)} bold />
                     <InfoBlock label="MATRICULE" value={agent.matricule} />
                     
                     <InfoBlock label="POSTE" value={agent.poste_l} bold />

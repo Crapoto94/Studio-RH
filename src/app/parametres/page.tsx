@@ -12,6 +12,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { OnboardingSettings } from '@/components/parametres/OnboardingSettings'
+import { RolesAndUsers } from '@/components/parametres/RolesAndUsers'
 
 // Import de l'éditeur riche dynamiquement (côté client uniquement)
 const ReactQuill = dynamic(() => import('react-quill-new'), { 
@@ -117,7 +118,7 @@ export default function ParametresPage() {
                 <TabsTrigger value="rh" className="gap-2"><Shield size={14} /> Règles RH</TabsTrigger>
                 <TabsTrigger value="onboarding" className="gap-2"><FileText size={14} /> Onboarding</TabsTrigger>
                 <TabsTrigger value="mail" className="gap-2"><Mail size={14} /> Configuration Mails</TabsTrigger>
-                <TabsTrigger value="users" className="gap-2"><Users size={14} /> Modérateurs</TabsTrigger>
+                <TabsTrigger value="users" className="gap-2"><Users size={14} /> Utilisateurs & Rôles</TabsTrigger>
               </TabsList>
 
               <div className="flex-1 w-full overflow-x-hidden">
@@ -157,13 +158,8 @@ export default function ParametresPage() {
                   <MailSection />
                 </TabsContent>
 
-                <TabsContent value="users" className="m-0 space-y-6 p-8 w-full max-w-none animate-in fade-in duration-500">
-                  <SettingSection title="Gestion des accès">
-                    <p className="text-sm text-slate-500 mb-4">Les droits sont gérés dans la base AppUser.</p>
-                    <button className="btn-primary opacity-50 cursor-not-allowed" disabled>
-                      Gérer les droits… (Bientôt disponible)
-                    </button>
-                  </SettingSection>
+                <TabsContent value="users" className="m-0 p-8 w-full max-w-none animate-in fade-in duration-500">
+                  <RolesAndUsers />
                 </TabsContent>
               </div>
             </Tabs>

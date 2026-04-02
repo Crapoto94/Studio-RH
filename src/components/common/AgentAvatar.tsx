@@ -21,29 +21,37 @@ export function AgentAvatar({ agent, size = 'md', className }: AgentAvatarProps)
   const isNouv = isNouveauAgent(agent)
   const isProch = isProchainAgent(agent)
 
+  // Mapping des bordures selon le statut demandé
+  const borderStyles: Record<string, string> = {
+    actif: 'border-solid border-2',
+    inactif: 'border-dashed border-2 opacity-70',
+    parti: 'border-solid border-2 opacity-50 grayscale',
+    futur: 'border-dotted border-2 opacity-90',
+  }
+
   return (
-    <div className="relative flex-shrink-0">
+    <div className="relative flex-shrink-0 group">
       <div
         className={cn(
-          'rounded-lg flex items-center justify-center font-display font-bold text-white select-none',
+          'rounded-lg flex items-center justify-center font-display font-bold select-none transition-all duration-200 group-hover:scale-105',
           sizeClasses[size],
-          statut === 'actif' && 'border-solid border-white ring-1 ring-slate-200',
-          statut === 'inactif' && 'border-dashed border-slate-300 opacity-70',
-          statut === 'parti' && 'border-solid border-white opacity-60',
+          borderStyles[statut],
           className
         )}
         style={{
-          backgroundColor: color,
-          borderColor: (statut === 'inactif' || statut === 'parti') ? '#cbd5e1' : color,
+          backgroundColor: `${color}22`, // Fond léger de la couleur
+          color: color,                  // Texte de la couleur
+          borderColor: color,            // Bordure de la couleur
         }}
-        title={`${agent.prenom} ${agent.nom}`}
+        title={`${agent.prenom} ${agent.nom} (${niveau})`}
       >
-        {initiales}
+        <span className="drop-shadow-sm">{initiales}</span>
+        
         {statut === 'parti' && (
           <div
-            className="absolute inset-0 rounded-lg overflow-hidden"
+            className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none"
             style={{
-              background: `linear-gradient(135deg, transparent 43%, ${color}66 43%, ${color}66 57%, transparent 57%)`
+              background: `linear-gradient(135deg, transparent 45%, ${color} 45%, ${color} 55%, transparent 55%)`
             }}
           />
         )}

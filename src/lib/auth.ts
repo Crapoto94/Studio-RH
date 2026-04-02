@@ -8,6 +8,8 @@ const loginSchema = z.object({
   password: z.string().min(1),
 })
 
+import { authenticateADViaApiVille } from '@/lib/api-ville'
+
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: 'jwt' },
@@ -23,31 +25,81 @@ export const authOptions: NextAuthOptions = {
         const parsed = loginSchema.safeParse(credentials)
         if (!parsed.success) return null
 
-        const user = await prisma.appUser.findUnique({
-          where: { login: parsed.data.login },
-        })
-        if (!user || !user.actif) return null
+        const { login, password } = parsed.data;
+        let authenticated = false;
+        let isAdUser = false;
 
-        // Simple password check (in production: use bcrypt)
-        if (user.password !== parsed.data.password) return null
+        // 1. Tenter l'authentification AD via l'API Ville
+        const isAdValid = await authenticateADViaApiVille(login, password)
+        if (isAdValid) {
+            authenticated = true;
+            isAdUser = true;
+        }
+
+        // 2. Recherche utilisateur
+        let user = await prisma.appUser.findUnique({
+          where: { login: login },
+        })
+
+        if (!authenticated) {
+            // Fallback: Check mot de passe local si AD a échoué
+            if (user && user.actif && user.password === password) {
+                authenticated = true;
+                isAdUser = user.is_ad;
+            }
+        } else if (!user) {
+            // Utilisateur validé par AD mais n'existe pas en DB -> Création à la volée
+            user = await prisma.appUser.create({
+                data: {
+                    login: login,
+                    password: '', 
+                    nom: login,
+                    prenom: '',
+                    role: 'user',
+                    is_ad: true,
+                    actif: true
+                }
+            })
+        }
+
+        if (!authenticated || !user || !user.actif) {
+            return null
+        }
+
+        // Si l'utilisateur a été validé par AD et qu'il existait déjà, on met à jour le flag is_ad
+        if (isAdUser && !user.is_ad) {
+           await prisma.appUser.update({ where: { id: user.id }, data: { is_ad: true } })
+        }
+
+        // 3. Charger le rôle
+        let permissions = '[]'
+        if (user.role) {
+           const roleObj = await prisma.appRole.findUnique({ where: { name: user.role } })
+           if (roleObj) permissions = roleObj.permissions
+        }
 
         return {
           id: String(user.id),
-          name: `${user.prenom} ${user.nom}`,
+          name: `${user.prenom} ${user.nom}`.trim() || login,
           email: user.login,
           role: user.role,
+          permissions: permissions
         }
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.role = (user as any).role
+      if (user) {
+         token.role = (user as any).role
+         token.permissions = (user as any).permissions
+      }
       return token
     },
     async session({ session, token }) {
       if (session.user) {
         ;(session.user as any).role = token.role
+        ;(session.user as any).permissions = token.permissions
         ;(session.user as any).id = token.sub
       }
       return session

@@ -364,7 +364,7 @@ function OnboardingFormContent() {
       <div className="max-w-3xl mx-auto space-y-10">
         <header className="text-center space-y-4">
           <div className="flex justify-center mx-auto mb-6">
-            <img src="/dsi.png" alt="Logo DSI" className="h-32 object-contain" />
+            <img src="/DSI.png" alt="Logo DSI" className="h-32 object-contain" />
           </div>
           <div>
             <h1 className="text-2xl font-display font-black text-slate-900 uppercase tracking-tight">Onboarding Manager</h1>

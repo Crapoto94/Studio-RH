@@ -125,7 +125,7 @@ export async function PATCH(
 
         if (manager && managerEmail) {
             const agentName = currentOnb.agent ? `${currentOnb.agent.prenom} ${currentOnb.agent.nom}` : `${dataToUpdate.prenom_temp || ''} ${dataToUpdate.nom_temp || ''}`
-            const publicUrl = req.nextUrl.origin
+            const publicUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
             const mailParam = await prisma.parametre.findUnique({ where: { cle: 'MAIL_MSG_MANAGER' } })
             const bodyTemplate = mailParam?.valeur || "Bonjour {{MANAGER_NOM}}, merci de compléter le formulaire pour {{AGENT_NOM}} : {{FORM_URL}}"
             

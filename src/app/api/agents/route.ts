@@ -20,44 +20,73 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const query = getAgentsSchema.parse(Object.fromEntries(searchParams))
 
-    const where: any = {}
+    const offset = (query.page - 1) * query.limit
+    
+    // --- CONSTRUCTION DE LA REQUÊTE SQL BRUTE ---
+    // (Plus fiable pour SQLite que l'abstraction Prisma sur les dates)
+    let whereConditions = ["1=1"]
+    const params: any[] = []
 
-    // Multi-criteria search
     if (query.search) {
-      where.OR = [
-        { nom: { contains: query.search } },
-        { prenom: { contains: query.search } },
-        { matricule: { contains: query.search } },
-        { poste_l: { contains: query.search } }
-      ]
+      whereConditions.push(`(nom LIKE ? OR prenom LIKE ? OR matricule LIKE ? OR poste_l LIKE ?)`)
+      const pattern = `%${query.search}%`
+      params.push(pattern, pattern, pattern, pattern)
     }
 
-    if (query.direction) where.nom_direction = { contains: query.direction }
-    if (query.service) where.nom_service = { contains: query.service }
-    if (query.statut) where.position_l = { contains: query.statut }
-
-    // Date filters (SQLite compatible using ISO strings for comparisons)
-    if (query.dateArriveeMin || query.dateArriveeMax) {
-      where.date_arrivee = {}
-      if (query.dateArriveeMin) where.date_arrivee.gte = new Date(query.dateArriveeMin).toISOString()
-      if (query.dateArriveeMax) where.date_arrivee.lte = new Date(query.dateArriveeMax).toISOString()
+    if (query.direction) {
+      whereConditions.push(`nom_direction LIKE ?`)
+      params.push(`%${query.direction}%`)
     }
 
-    if (query.dateDepartMin || query.dateDepartMax) {
-      where.date_depart = {}
-      if (query.dateDepartMin) where.date_depart.gte = new Date(query.dateDepartMin).toISOString()
-      if (query.dateDepartMax) where.date_depart.lte = new Date(query.dateDepartMax).toISOString()
+    if (query.service) {
+      whereConditions.push(`nom_service LIKE ?`)
+      params.push(`%${query.service}%`)
     }
 
-    const [agents, totalCount] = await Promise.all([
-      prisma.refAgent.findMany({
-        where,
-        orderBy: { nom: 'asc' },
-        skip: (query.page - 1) * query.limit,
-        take: query.limit
-      }),
-      prisma.refAgent.count({ where })
+    if (query.statut) {
+      whereConditions.push(`position_l LIKE ?`)
+      params.push(`%${query.statut}%`)
+    }
+
+    // Filtres de dates (Format ISO strict)
+    if (query.dateArriveeMin) {
+      whereConditions.push(`date_arrivee >= ?`)
+      params.push(new Date(query.dateArriveeMin).toISOString())
+    }
+    if (query.dateArriveeMax) {
+      const d = new Date(query.dateArriveeMax)
+      if (query.dateArriveeMax !== '2099-12-31') d.setHours(23, 59, 59, 999)
+      else d.setFullYear(2099, 11, 31)
+      whereConditions.push(`date_arrivee <= ?`)
+      params.push(d.toISOString())
+    }
+
+    if (query.dateDepartMin) {
+      whereConditions.push(`date_depart >= ?`)
+      params.push(new Date(query.dateDepartMin).toISOString())
+    }
+    if (query.dateDepartMax) {
+      const d = new Date(query.dateDepartMax)
+      d.setHours(23, 59, 59, 999)
+      whereConditions.push(`date_depart <= ?`)
+      params.push(d.toISOString())
+    }
+
+    const whereClause = whereConditions.join(" AND ")
+    
+    // On lance les deux requêtes en parallèle (Données + Total)
+    const [agents, countRes] = await Promise.all([
+      prisma.$queryRawUnsafe(
+        `SELECT * FROM "REF_AGENTS" WHERE ${whereClause} ORDER BY nom ASC LIMIT ${query.limit} OFFSET ${offset}`,
+        ...params
+      ) as Promise<any[]>,
+      prisma.$queryRawUnsafe(
+        `SELECT COUNT(*) as count FROM "REF_AGENTS" WHERE ${whereClause}`,
+        ...params
+      ) as Promise<any[]>
     ])
+
+    const totalCount = Number(countRes[0]?.count || 0)
 
     return NextResponse.json({
       data: agents,

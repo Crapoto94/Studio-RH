@@ -513,26 +513,20 @@ services:
 ```
 
 
-## 🚀 14. COMMANDE LANCEMENT PROJET
+## 🎨 15. RÈGLES D'AFFICHAGE (UX)
 
-```bash
-# 1. Créer projet
-npx create-next-app@15 ivry-agents --ts --tailwind --app
-cd ivry-agents
+✅ FORMATAGE DES NOMS ET PRÉNOMS :
+- **NOM** : Toujours afficher en MAJUSCULES (ex: `CHEVALIER`).
+- **PRÉNOM** : Toujours afficher la première lettre de chaque mot en majuscule, et le reste en minuscule (ex: `Marc`, `Jean-Pierre`).
+- Utiliser systématiquement la fonction `formatPrenom()` de `lib/utils.ts`.
 
-# 2. Installer shadcn + essentials
-npx shadcn@latest init
-npx shadcn@latest add card button badge avatar dialog tabs data-table
-
-# 3. Prisma
-npx prisma init --datasource-provider postgresql
-# Copier schema.prisma depuis DESIGN.MD
-
-# 4. Antigravity + ce GEMINI.MD
-cp ~/GEMINI.MD ./
-code .  # VS Code + Antigravity extension
+```typescript
+// lib/utils.ts
+export function formatPrenom(str: string): string {
+  if (!str) return ''
+  return str.toLowerCase().replace(/(^|[\s\-])\p{L}/gu, (match) => match.toUpperCase())
+}
 ```
-
 
 ***
 

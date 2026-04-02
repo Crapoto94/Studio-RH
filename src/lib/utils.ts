@@ -1,36 +1,29 @@
-import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
-import type { Agent, NiveauHierarchie } from '@/types'
+import { Agent, NiveauHierarchie } from '@/types'
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
-
-// Couleur par niveau hiérarchique (avatars + UI)
-export const HIERARCHY_COLORS: Record<NiveauHierarchie, string> = {
-  dg:        'bg-purple-600 border-purple-400',
-  direction: 'bg-blue-600 border-blue-400',
-  service:   'bg-teal-600 border-teal-400',
-  secteur:   'bg-amber-600 border-amber-400',
-  agent:     'bg-indigo-600 border-indigo-400',
-}
-
+// Couleurs par défaut de la hiérarchie (peuvent être surchargées par la DB)
 export const HIERARCHY_HEX: Record<NiveauHierarchie, string> = {
-  dg:        '#9333ea',
-  direction: '#2563eb',
-  service:   '#0d9488',
-  secteur:   '#d97706',
-  agent:     '#4f46e5',
+  dg:        '#9333ea', // Violet
+  direction: '#2563eb', // Bleu
+  service:   '#0d9488', // Teal
+  secteur:   '#d97706', // Ambre
+  agent:     '#4f46e5', // Indigo
 }
 
-// Parseur de date robuste (Supporte ISO et FR DD/MM/YYYY)
+// Parseur de date robuste (Supporte Date, ISO et FR DD/MM/YYYY)
 export function parseDate(date: any): Date | null {
   if (!date) return null
   if (date instanceof Date) return date
   
   const dateStr = String(date).trim()
+  if (!dateStr || dateStr === 'null' || dateStr === '—') return null
   
-  // Priorité absolue au format français (JJ/MM/AAAA) car JS inverse souvent J/M
+  // Format ISO
+  if (dateStr.includes('T') || dateStr.includes('-')) {
+    const d = new Date(dateStr)
+    if (!isNaN(d.getTime())) return d
+  }
+
+  // Format français (JJ/MM/AAAA)
   const parts = dateStr.split('/')
   if (parts.length === 3) {
     const day = parseInt(parts[0], 10)
@@ -39,10 +32,6 @@ export function parseDate(date: any): Date | null {
     const res = new Date(year, month, day)
     if (!isNaN(res.getTime())) return res
   }
-
-  // Fallback ISO (AAAA-MM-JJ)
-  const d = new Date(dateStr)
-  if (!isNaN(d.getTime())) return d
 
   return null
 }
@@ -55,8 +44,6 @@ export function getAgentStatut(agent: Agent): 'actif' | 'inactif' | 'parti' | 'f
 
   if (arrivee && arrivee > now) return 'futur'
   if (depart && depart < now) return 'parti'
-  
-  // Règle de sécurité : si l'agent n'est plus actif dans le référentiel
   if (agent.actif === false) return 'inactif'
   
   return 'actif'
@@ -74,8 +61,16 @@ export function isProchainAgent(agent: Agent): boolean {
   return !!(arrivee && arrivee > new Date())
 }
 
+// Formatte le prénom : Première lettre en majuscule pour chaque mot, le reste en minuscule.
+export function formatPrenom(str: string | null | undefined): string {
+  if (!str) return ''
+  return str.toLowerCase().replace(/(^|[\s\-])\p{L}/gu, (match) => match.toUpperCase())
+}
+
 export function getInitiales(nom: string, prenom: string): string {
-  return `${prenom?.charAt(0) || ''}${nom?.charAt(0) || ''}`.toUpperCase()
+  const p = formatPrenom(prenom)
+  const n = nom?.toUpperCase() || ''
+  return `${p.charAt(0)}${n.charAt(0)}`
 }
 
 export function formatDate(date: string | Date | null | undefined): string {
@@ -87,17 +82,6 @@ export function formatDate(date: string | Date | null | undefined): string {
   })
 }
 
-export const LICENCE_COLORS: Record<string, string> = {
-  E3: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
-  E1: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  F3: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
-  F1: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
-  E5: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-}
-
-export const SYNCHRO_COLORS: Record<string, string> = {
-  brut:  'text-blue-400',
-  rh:    'text-teal-400',
-  ad:    'text-amber-400',
-  azure: 'text-purple-400',
+export function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(' ')
 }

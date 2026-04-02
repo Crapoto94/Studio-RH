@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Search, UserCircle, Send, Loader2, CheckCircle2 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { formatPrenom } from '@/lib/utils'
 
 interface AddOnboardingDialogProps {
   agent: any | null
@@ -92,7 +93,7 @@ export function AddOnboardingDialog({ agent, onClose }: AddOnboardingDialogProps
             {isManual ? "Nouvel Arrivant Hors-Base" : "Assigner un Manager"}
           </DialogTitle>
           <p className="text-sm text-slate-500 mt-1 italic">
-             {isManual ? "Veuillez saisir l'identité de l'arrivant" : `Onboarding de ${(agent as any).prenom} ${(agent as any).nom}`}
+             {isManual ? "Veuillez saisir l'identité de l'arrivant" : `Onboarding de ${formatPrenom((agent as any).prenom)} ${(agent as any).nom?.toUpperCase()}`}
           </p>
         </DialogHeader>
 
@@ -185,7 +186,7 @@ export function AddOnboardingDialog({ agent, onClose }: AddOnboardingDialogProps
                       {m.prenom[0]}{m.nom[0]}
                     </div>
                     <div>
-                      <div className="text-sm font-bold text-slate-800 uppercase">{m.nom} {m.prenom}</div>
+                      <div className="text-sm font-bold text-slate-800 uppercase">{m.nom} <span className="normal-case font-medium text-slate-400 ml-1">{formatPrenom(m.prenom)}</span></div>
                       <div className="text-[10px] text-slate-500 uppercase">{m.position_l}</div>
                       {!(m.mail || m.azure_id) && <div className="text-[9px] text-rose-500 font-bold uppercase mt-1">⚠️ Aucun Email Défini</div>}
                     </div>

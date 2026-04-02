@@ -8,7 +8,7 @@ import {
   LayoutPanelLeft, Hash, Info, Target, Calendar, ShieldCheck, X
 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatPrenom } from '@/lib/utils'
 import { useState, useMemo } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
@@ -102,7 +102,9 @@ export function OnboardingDetailDialog({ onboarding: initialOnboarding, onClose 
 
   if (!initialOnboarding) return null
   
-  const agentName = onboarding.agent ? `${onboarding.agent.prenom} ${onboarding.agent.nom}` : `${onboarding.prenom_temp || ''} ${onboarding.nom_temp || ''}`
+  const agentFirstName = onboarding.agent ? onboarding.agent.prenom : onboarding.prenom_temp
+  const agentLastName = onboarding.agent ? onboarding.agent.nom : onboarding.nom_temp
+  const agentNameTotal = `${formatPrenom(agentFirstName || '')} ${(agentLastName || '').toUpperCase()}`
   const totalTasks = onboarding.tasks?.length || 0
   const completedTasks = onboarding.tasks?.filter((t: any) => t.done).length || 0
   const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
@@ -124,8 +126,8 @@ export function OnboardingDetailDialog({ onboarding: initialOnboarding, onClose 
                       {onboarding.statut.replace('_', ' ')}
                     </Badge>
                   </div>
-                  <h2 className="text-5xl font-black text-slate-800 tracking-tight leading-none uppercase italic">
-                    {agentName || 'Agent sans nom'}
+                  <h2 className="text-5xl font-black text-slate-800 tracking-tight leading-none italic">
+                    {agentNameTotal || 'Agent sans nom'}
                   </h2>
                 </header>
 
@@ -256,7 +258,7 @@ export function OnboardingDetailDialog({ onboarding: initialOnboarding, onClose 
                          </div>
                          <div className="min-w-0">
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Manager</p>
-                            <p className="text-sm font-bold text-slate-700">{onboarding.manager?.prenom} {onboarding.manager?.nom}</p>
+                            <p className="text-sm font-bold text-slate-700">{formatPrenom(onboarding.manager?.prenom)} {onboarding.manager?.nom?.toUpperCase()}</p>
                          </div>
                       </div>
 
@@ -284,7 +286,17 @@ export function OnboardingDetailDialog({ onboarding: initialOnboarding, onClose 
                       
                       <button 
                          onClick={() => {
-                            navigator.clipboard.writeText(`${window.location.origin}/onboarding/form?token=${onboarding.token_formulaire}`)
+                            const link = `${window.location.origin}/onboarding/form?token=${onboarding.token_formulaire}`
+                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                navigator.clipboard.writeText(link)
+                            } else {
+                                const textArea = document.createElement("textarea")
+                                textArea.value = link
+                                document.body.appendChild(textArea)
+                                textArea.select()
+                                try { document.execCommand('copy') } catch (e) {}
+                                document.body.removeChild(textArea)
+                            }
                             setCopied(true)
                             setTimeout(() => setCopied(false), 2000)
                          }}

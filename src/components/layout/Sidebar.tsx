@@ -2,10 +2,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useSession, signOut } from 'next-auth/react'
 import {
   LayoutDashboard, Users, RefreshCw, GitBranch,
   AlignLeft, UserCheck, Settings, Database,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -23,6 +24,17 @@ const navItems = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
+  const { data: session } = useSession()
+
+  const userRole = (session?.user as any)?.role || 'user'
+  let userPermissions: string[] = []
+  try {
+    userPermissions = JSON.parse((session?.user as any)?.permissions || '[]')
+  } catch (e) {}
+
+  const visibleNavItems = userRole === 'admin' 
+    ? navItems 
+    : navItems.filter(item => userPermissions.includes(item.href))
 
   return (
     <aside className={cn(
@@ -44,7 +56,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {visibleNavItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== '/' && pathname.startsWith(href))
           return (
             <Link
@@ -64,9 +76,30 @@ export function Sidebar() {
         })}
       </nav>
 
+      {/* User + Logout */}
+      <div className="px-2 py-3 border-t border-white/[0.06]">
+        {!collapsed && session?.user && (
+          <div className="px-2 mb-2">
+            <div className="text-xs font-semibold text-[#dee5ff] truncate">{session.user.name}</div>
+            <div className="text-[10px] text-[#6d758c] truncate">{(session.user as any)?.role || 'user'}</div>
+          </div>
+        )}
+        <button
+          onClick={() => signOut({ callbackUrl: '/login' })}
+          className={cn(
+            'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 w-full',
+            'text-red-400/70 hover:text-red-400 hover:bg-red-500/10'
+          )}
+          aria-label="Se déconnecter"
+        >
+          <LogOut size={18} className="flex-shrink-0" />
+          {!collapsed && <span>Déconnexion</span>}
+        </button>
+      </div>
+
       {/* Version */}
       {!collapsed && (
-        <div className="px-4 py-3 text-xs text-[#6d758c]">DSI Ivry-sur-Seine v1.0</div>
+        <div className="px-4 py-2 text-xs text-[#6d758c]">DSI Ivry-sur-Seine v1.0</div>
       )}
 
       {/* Collapse toggle */}

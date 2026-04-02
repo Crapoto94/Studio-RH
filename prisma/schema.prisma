@@ -142,8 +142,8 @@ model RefAgent {
   nom_direction     String?
   code_dg_cab       String?
   nom_dg_cab_l      String?
-  date_arrivee      String?
-  date_depart       String?
+  date_arrivee      DateTime?
+  date_depart       DateTime?
   plus_vu           DateTime?
   ad_id             String?
   azure_id          String?
@@ -264,6 +264,15 @@ model Parametre {
   @@map("PARAMETRES")
 }
 
+model AppRole {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  permissions String   @default("[]")
+  created_at  DateTime @default(now())
+
+  @@map("ROLES")
+}
+
 model AppUser {
   id         Int      @id @default(autoincrement())
   login      String   @unique
@@ -271,6 +280,7 @@ model AppUser {
   nom        String
   prenom     String
   role       String   @default("user")
+  is_ad      Boolean  @default(false)
   actif      Boolean  @default(true)
   created_at DateTime @default(now())
 

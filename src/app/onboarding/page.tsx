@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { PageHeader } from '@/components/common/PageHeader'
 import { UserCheck, Plus, Search, Calendar, MoreVertical, Briefcase, UserPlus, Send, Clock, Trash2, Edit2, AlertTriangle, Loader2 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatPrenom, cn } from '@/lib/utils'
 import { AddOnboardingDialog } from '@/components/onboarding/AddOnboardingDialog'
 import { OnboardingDetailDialog } from '@/components/onboarding/OnboardingDetailDialog'
 import { EditOnboardingDialog } from '@/components/onboarding/EditOnboardingDialog'
@@ -253,8 +253,8 @@ function KanbanCard({ item, color, type, onAssign, onSelect, onDelete, onEdit }:
   onEdit?: (onboarding: any) => void
 }) {
   const actualType = (type === 'mixed' && item.statut) ? 'onboarding' : (type === 'mixed' ? 'agent' : type)
-  const nom = actualType === 'agent' ? item.nom : (item.agent ? item.agent.nom : item.nom_temp)
-  const prenom = actualType === 'agent' ? item.prenom : (item.agent ? item.agent.prenom : item.prenom_temp)
+  const nom = (actualType === 'agent' ? item.nom : (item.agent ? item.agent.nom : item.nom_temp))?.toUpperCase() || ''
+  const prenom = formatPrenom(actualType === 'agent' ? item.prenom : (item.agent ? item.agent.prenom : item.prenom_temp))
   const arrivalDate = actualType === 'agent' ? item.date_arrivee : item.date_arrivee_prevue
   const fonction = actualType === 'agent'
     ? (item.poste_l || item.grade_l || 'Poste à définir')

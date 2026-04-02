@@ -4,6 +4,8 @@ import { PageHeader } from '@/components/common/PageHeader'
 import { LayoutDashboard, Users, UserCheck, RefreshCw, AlertCircle } from 'lucide-react'
 import { prisma } from '@/lib/db'
 import { StatusBadge } from '@/components/common/StatusBadge'
+import { AgentAvatar } from '@/components/common/AgentAvatar'
+import { formatPrenom } from '@/lib/utils'
 import { PositionsPieChart } from '@/components/dashboard/PositionsPieChart'
 
 export const dynamic = 'force-dynamic'
@@ -50,14 +52,16 @@ async function getDashboardStats() {
 
   // Recent onboarding (sécurisé pour éviter les erreurs de colonnes manquantes)
   const onboardings = await (prisma.onboarding as any).findMany({
-    select: {
-      id: true,
-      nom_temp: true,
-      prenom_temp: true,
-      statut: true,
-      created_at: true
+    include: {
+      agent: {
+        select: {
+          nom: true,
+          prenom: true,
+          position_l: true
+        }
+      }
     },
-    take: 5,
+    take: 6,
     orderBy: { created_at: 'desc' }
   }).catch((err: any) => {
     console.error("Dashboard Onboarding Load Error:", err)
@@ -96,26 +100,38 @@ export default async function DashboardPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Middle Section: Onboarding */}
-          <div className="lg:col-span-2 glass-card p-6">
+          <div className="lg:col-span-3 glass-card p-6">
             <h3 className="font-display font-semibold text-lg mb-4 text-slate-800">Activité Onboarding Récente</h3>
             {stats.onboardings.length === 0 ? (
               <p className="text-slate-500 text-sm">Aucune activité d'onboarding récente.</p>
             ) : (
-              <div className="space-y-3">
-                {stats.onboardings.map((ob: any) => (
-                  <div key={ob.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
-                    <div>
-                      <span className="font-medium">{ob.agent?.nom || ob.nom_temp} {ob.agent?.prenom || ob.prenom_temp}</span>
-                      <span className="text-xs text-slate-500 block mt-0.5 ml-1">Statut: {ob.statut}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {stats.onboardings.map((ob: any) => {
+                  const agentData = ob.agent || { nom: ob.nom_temp, prenom: ob.prenom_temp, position_l: 'Agent' }
+                  return (
+                    <div key={ob.id} className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-slate-100 hover:border-indigo-200 transition-all hover:shadow-md hover:-translate-y-0.5 group">
+                      <AgentAvatar agent={agentData} size="md" />
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
+                          {formatPrenom(agentData.prenom)} {agentData.nom?.toUpperCase()}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded bg-slate-50 text-slate-400 uppercase tracking-widest border border-slate-100">
+                            {ob.statut.replace('_', ' ')}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
+        </div>
 
-          {/* Positions Pie Chart */}
-          <div className="glass-card p-6 flex flex-col h-[400px]">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Positions Pie Chart (Full width on its row now) */}
+          <div className="lg:col-span-3 glass-card p-6 flex flex-col h-[400px]">
             <h3 className="font-display font-semibold text-lg mb-4 text-slate-800">Répartition des Positions</h3>
             <div className="flex-1 min-h-0">
               <PositionsPieChart data={stats.posDistribution} activePositions={stats.activePositions} />

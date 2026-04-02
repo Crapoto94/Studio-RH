@@ -49,7 +49,7 @@ export async function POST(
       variables: {
         AGENT_NOM: agentName,
         TASK_NAME: task.titre,
-        VAL_URL: `${req.nextUrl.origin}/onboarding/task/acknowledge?token=${task.task_token}`
+        VAL_URL: `${publicUrl}/onboarding/task/acknowledge?token=${task.task_token}`
       }
     })
 

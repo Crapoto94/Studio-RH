@@ -224,7 +224,7 @@ export async function POST(req: NextRequest) {
       try {
         const workflow = JSON.parse(configParam.valeur) 
         if (Array.isArray(workflow)) {
-          const publicUrl = req.nextUrl.origin
+          const publicUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
           const agentName = onboarding.agent 
             ? `${onboarding.agent.prenom} ${onboarding.agent.nom}` 
             : `${onboarding.prenom_temp} ${onboarding.nom_temp}`
@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
                 variables: {
                   AGENT_NOM: agentName,
                   TASK_NAME: taskName,
-                  VAL_URL: `${req.nextUrl.origin}/onboarding/task/acknowledge?token=${taskToken}`
+                  VAL_URL: `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin}/onboarding/task/acknowledge?token=${taskToken}`
                 }
               }).catch(e => console.error(`[ONBOARDING-PUBLIC-ERROR] Mail fail to ${item.email}`, e))
             }
@@ -308,7 +308,7 @@ export async function POST(req: NextRequest) {
                         variables: {
                             AGENT_NOM: agentName,
                             TASK_NAME: taskTitle,
-                            VAL_URL: `${req.nextUrl.origin}/onboarding/task/acknowledge?token=${taskToken}`
+                            VAL_URL: `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin}/onboarding/task/acknowledge?token=${taskToken}`
                         }
                     }).catch(e => console.error(`[ONBOARDING-PUBLIC-ERROR] Mail fail to ${sw.email_createur} for ${sw.nom}`, e))
                 }

@@ -23,8 +23,12 @@ COPY --from=builder /app/next.config.mjs ./
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-# Copy prisma directory
+# Copy prisma and scripts directories for maintenance
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/scripts ./scripts
+# Copy selective node_modules for prisma CLI to work in container
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 EXPOSE 3000
 ENV PORT 3000

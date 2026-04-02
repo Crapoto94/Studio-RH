@@ -6,7 +6,8 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { PageHeader } from '@/components/common/PageHeader'
 import { AgentsTable } from '@/components/agents/AgentsTable'
 import { useAgents } from '@/hooks/useAgents'
-import { Users, Search, Filter, Download } from 'lucide-react'
+import { Users, Search, Filter, Download, UserPlus, UserMinus, Calendar } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 
 export default function AgentsPage() {
   const {
@@ -24,11 +25,19 @@ export default function AgentsPage() {
 
   const [showFilters, setShowFilters] = useState(false)
 
+  const { data: counts } = useQuery({
+    queryKey: ['agent-counts'],
+    queryFn: async () => {
+      const res = await fetch('/api/agents/counts')
+      return res.json()
+    }
+  })
+
   return (
     <div className="flex bg-[#f4f6fb] text-[#1a2340]">
       <Sidebar />
       <PageContainer 
-        title="Liste des Agents" 
+        title="Annuaire des Agents" 
         subtitle={`${count} agents référencés au total`}
         className="pb-12"
       >
@@ -36,24 +45,104 @@ export default function AgentsPage() {
           title="Annuaire Global"
           icon={Users}
           actions={
-            <>
+            <div className="flex gap-3">
               <button 
                 onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${
-                  showFilters ? 'bg-blue-50 border-blue-400 text-blue-700' : 'bg-slate-50 border-slate-300 text-slate-700 hover:bg-white'
+                className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-sm font-bold transition-all ${
+                  showFilters ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 <Filter size={16} /> Filtres
               </button>
-              <button className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm font-medium hover:bg-white transition-colors">
+              <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all">
                 <Download size={16} /> Exporter
               </button>
-              <button className="btn-primary flex items-center gap-2 text-sm">
-                + Nouvel Onboarding
+              <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-black uppercase tracking-tight shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
+                + Onboarding
               </button>
-            </>
+            </div>
           }
         />
+
+        {/* Filter Presets */}
+        <div className="flex flex-wrap items-center gap-4 mb-8">
+          <button
+            onClick={() => {
+              const thirtyDaysAgo = new Date()
+              thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+              const today = new Date()
+              setFilter('dateDepartMin', '')
+              setFilter('dateDepartMax', '')
+              setFilter('dateArriveeMin', thirtyDaysAgo.toISOString().split('T')[0])
+              setFilter('dateArriveeMax', today.toISOString().split('T')[0])
+            }}
+            className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border-2 ${
+              filters.dateArriveeMin && filters.dateArriveeMax !== '2099-12-31'
+                ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-100'
+                : 'bg-white border-slate-100 text-slate-500 hover:border-indigo-200 hover:text-indigo-600'
+            }`}
+          >
+            <UserPlus size={18} className={filters.dateArriveeMin && filters.dateArriveeMax !== '2099-12-31' ? "text-white" : "text-indigo-500"} />
+            Nouveaux
+            <span className={`ml-2 px-2 py-0.5 rounded-lg text-[10px] ${filters.dateArriveeMin && filters.dateArriveeMax !== '2099-12-31' ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-600 font-bold'}`}>
+              {counts?.newAgents || 0}
+            </span>
+          </button>
+          
+          <button
+            onClick={() => {
+              const thirtyDaysAgo = new Date()
+              thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+              const today = new Date()
+              setFilter('dateArriveeMin', '')
+              setFilter('dateArriveeMax', '')
+              setFilter('dateDepartMin', thirtyDaysAgo.toISOString().split('T')[0])
+              setFilter('dateDepartMax', today.toISOString().split('T')[0])
+            }}
+            className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border-2 ${
+              filters.dateDepartMin
+                ? 'bg-rose-600 border-rose-600 text-white shadow-xl shadow-rose-100'
+                : 'bg-white border-slate-100 text-slate-500 hover:border-rose-200 hover:text-rose-600'
+            }`}
+          >
+            <UserMinus size={18} className={filters.dateDepartMin ? "text-white" : "text-rose-500"} />
+            Partis (-30j)
+            <span className={`ml-2 px-2 py-0.5 rounded-lg text-[10px] ${filters.dateDepartMin ? 'bg-white/20 text-white' : 'bg-rose-50 text-rose-600 font-bold'}`}>
+              {counts?.recentlyLeft || 0}
+            </span>
+          </button>
+
+          <button
+            onClick={() => {
+              const tomorrow = new Date()
+              tomorrow.setDate(tomorrow.getDate() + 1)
+              setFilter('dateDepartMin', '')
+              setFilter('dateDepartMax', '')
+              setFilter('dateArriveeMin', tomorrow.toISOString().split('T')[0])
+              setFilter('dateArriveeMax', '2099-12-31')
+            }}
+            className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border-2 ${
+              filters.dateArriveeMax === '2099-12-31'
+                ? 'bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-100'
+                : 'bg-white border-slate-100 text-slate-500 hover:border-emerald-200 hover:text-emerald-600'
+            }`}
+          >
+            <Calendar size={18} className={filters.dateArriveeMax === '2099-12-31' ? "text-white" : "text-emerald-500"} />
+            Futurs agents
+            <span className={`ml-2 px-2 py-0.5 rounded-lg text-[10px] ${filters.dateArriveeMax === '2099-12-31' ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-600 font-bold'}`}>
+              {counts?.futureAgents || 0}
+            </span>
+          </button>
+
+          {(filters.dateArriveeMin || filters.dateArriveeMax || filters.dateDepartMin || filters.search || filters.direction) && (
+            <button 
+              onClick={resetFilters}
+              className="px-4 py-2 text-[10px] font-black uppercase tracking-tighter text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+            >
+              Effacer les filtres
+            </button>
+          )}
+        </div>
 
         {/* Toolbar */}
         <div className="space-y-4 mb-6">
@@ -63,20 +152,11 @@ export default function AgentsPage() {
               <input
                 type="text"
                 placeholder="Rechercher par nom, prénom, matricule..."
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#6366f1] focus:ring-1 focus:ring-[#6366f1] transition-all shadow-sm"
+                className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all shadow-sm"
                 value={filters.search}
                 onChange={(e) => handleSearchChange(e.target.value)}
               />
             </div>
-            
-            {showFilters && (
-              <button 
-                onClick={resetFilters}
-                className="text-xs text-blue-600 font-bold hover:underline"
-              >
-                Réinitialiser les filtres
-              </button>
-            )}
           </div>
 
           {showFilters && (
@@ -115,46 +195,6 @@ export default function AgentsPage() {
                   <option value="Disponibilité">Disponibilité</option>
                 </select>
               </div>
-              
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Arrivée (Après le...)</label>
-                <input 
-                  type="date" 
-                  className="w-full text-xs border border-slate-200 rounded-md px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={filters.dateArriveeMin}
-                  onChange={(e) => setFilter('dateArriveeMin', e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Arrivée (Avant le...)</label>
-                <input 
-                  type="date" 
-                  className="w-full text-xs border border-slate-200 rounded-md px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={filters.dateArriveeMax}
-                  onChange={(e) => setFilter('dateArriveeMax', e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Départ (Après le...)</label>
-                <input 
-                  type="date" 
-                  className="w-full text-xs border border-slate-200 rounded-md px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={filters.dateDepartMin}
-                  onChange={(e) => setFilter('dateDepartMin', e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Départ (Avant le...)</label>
-                <input 
-                  type="date" 
-                  className="w-full text-xs border border-slate-200 rounded-md px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={filters.dateDepartMax}
-                  onChange={(e) => setFilter('dateDepartMax', e.target.value)}
-                />
-              </div>
             </div>
           )}
         </div>
@@ -171,17 +211,17 @@ export default function AgentsPage() {
             <button 
               onClick={() => handlePageChange(page - 1)}
               disabled={page === 1}
-              className="px-3 py-1 bg-slate-50 border border-slate-300 rounded hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               Précédent
             </button>
-            <div className="px-3 py-1 bg-slate-50 border border-slate-300 rounded">
+            <div className="px-4 py-1 bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold rounded-lg">
               {page} / {totalPages || 1}
             </div>
             <button 
               onClick={() => handlePageChange(page + 1)}
               disabled={page >= totalPages}
-              className="px-3 py-1 bg-slate-50 border border-slate-300 rounded hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               Suivant
             </button>
@@ -191,5 +231,3 @@ export default function AgentsPage() {
     </div>
   )
 }
-
-

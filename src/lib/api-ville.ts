@@ -129,3 +129,54 @@ export async function sendEmailWithTemplate(options: EmailOptions): Promise<bool
     return false;
   }
 }
+
+/**
+ * Authentifie un utilisateur Active Directory via l'API Ville
+ */
+export async function authenticateADViaApiVille(login: string, password: string): Promise<boolean> {
+  try {
+    const params = await prisma.parametre.findMany({
+      where: { cle: { in: ['API_VILLE_URL', 'API_VILLE_TOKEN'] } }
+    });
+    const config = Object.fromEntries(params.map(p => [p.cle, p.valeur]));
+    
+    let apiUrl = config['API_VILLE_URL'] || process.env.API_VILLE_URL || 'https://api-dev.ivry.local/api';
+    const apiToken = config['API_VILLE_TOKEN'] || process.env.API_VILLE_TOKEN;
+
+    // Ivory v1 AD Auth standard endpoint (Sync avec curl utilisateur)
+    let baseUrl = apiUrl;
+    if (!baseUrl.includes('/api')) baseUrl += '/api';
+    const endpoint = `${baseUrl}/v1/ad/authenticate`;
+    
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-KEY': apiToken || ''
+      },
+      // Corps exact suggéré par le curl fonctionnel
+      body: JSON.stringify({ 
+        username: login, 
+        password
+      })
+    });
+
+    if (!res.ok) {
+       const text = await res.text().catch(() => 'No detail');
+       console.warn(`[API-VILLE-AD] Échec de l'authentification pour ${login} (Statut: ${res.status}). Détail: ${text}`);
+       
+       if (res.status === 401) {
+         console.warn('[API-VILLE-AD] Identifiants potentiellement invalides ou compte verrouillé dans l\'AD.');
+       }
+       return false;
+    }
+
+    console.log(`[API-VILLE-AD] Authentification réussie pour ${login}`);
+    return true;
+  } catch (error: any) {
+    console.error('[API-VILLE-AD-ERROR]', error.message);
+    return false;
+  }
+}
