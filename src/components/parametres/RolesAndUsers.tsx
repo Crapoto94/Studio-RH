@@ -31,7 +31,12 @@ function RolesManager() {
   const queryClient = useQueryClient()
   const { data: roles = [], isLoading } = useQuery({
     queryKey: ['roles'],
-    queryFn: async () => (await fetch('/api/roles')).json(),
+    queryFn: async () => {
+      const res = await fetch('/api/roles')
+      if (!res.ok) return []
+      const json = await res.json()
+      return Array.isArray(json) ? json : []
+    },
   })
 
   // Mutations
@@ -158,11 +163,21 @@ function UsersManager() {
   const queryClient = useQueryClient()
   const { data: users = [], isLoading: loadUsers } = useQuery({
     queryKey: ['users'],
-    queryFn: async () => (await fetch('/api/users')).json(),
+    queryFn: async () => {
+      const res = await fetch('/api/users')
+      if (!res.ok) return []
+      const json = await res.json()
+      return Array.isArray(json) ? json : []
+    },
   })
   const { data: roles = [], isLoading: loadRoles } = useQuery({
     queryKey: ['roles'],
-    queryFn: async () => (await fetch('/api/roles')).json(),
+    queryFn: async () => {
+      const res = await fetch('/api/roles')
+      if (!res.ok) return []
+      const json = await res.json()
+      return Array.isArray(json) ? json : []
+    },
   })
 
   const updateUser = useMutation({

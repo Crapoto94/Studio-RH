@@ -21,8 +21,10 @@ export function OnboardingSettings() {
     queryKey: ['parametres'],
     queryFn: async () => {
       const res = await fetch('/api/parametres')
-      const json: { cle: string; valeur: string }[] = await res.json()
-      return Object.fromEntries(json.map(p => [p.cle, p.valeur]))
+      if (!res.ok) throw new Error('Erreur API')
+      const json = await res.json()
+      if (!Array.isArray(json)) return {}
+      return Object.fromEntries(json.map((p: any) => [p.cle, p.valeur]))
     }
   })
 
