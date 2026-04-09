@@ -126,13 +126,14 @@ function ManagerDashboardContent() {
             const agentNom = (o.agent?.nom || o.nom_temp)?.toUpperCase()
             const agentPrenom = formatPrenom(o.agent?.prenom || o.prenom_temp)
             const arrivalDate = o.date_arrivee_prevue || o.agent?.date_arrivee
-            const statusLabel = {
+            const statusMap: Record<string, string> = {
               'a_faire': 'Initialisation RH',
               'en_cours_demande': 'En attente formulaire',
               'en_cours_realisation': 'En cours de préparation',
               'termine': 'Prêt pour arrivée',
               'annule': 'Annulé'
-            }[o.statut] || o.statut
+            }
+            const statusLabel = statusMap[o.statut as keyof typeof statusMap] || o.statut
 
             return (
               <Card key={o.id} className="border-none shadow-xl shadow-slate-200/50 rounded-3xl overflow-hidden hover:scale-[1.02] transition-all duration-300">
