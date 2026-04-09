@@ -5,6 +5,9 @@ const nextConfig = {
   images: {
     remotePatterns: [],
   },
+  experimental: {
+    instrumentationHook: true
+  }
 }
 
 export default nextConfig

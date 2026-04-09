@@ -338,3 +338,18 @@ model SmsLog {
 
   @@map("SMS_LOGS")
 }
+
+model CronJob {
+  id              Int       @id @default(autoincrement())
+  name            String
+  type            String    // 'rh', 'ad', 'azure', 'mairie'
+  schedule        String    // ex: "0 2 * * *" or "hourly"
+  schedule_type   String    // 'daily', 'hourly', 'every_x_hours', 'custom' 
+  is_active       Boolean   @default(true)
+  last_run        DateTime?
+  next_run        DateTime? // Calculé ou stocké pour info
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  @@map("CRON_JOBS")
+}
