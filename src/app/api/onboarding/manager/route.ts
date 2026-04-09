@@ -16,7 +16,9 @@ export async function GET(req: NextRequest) {
       select: { manager_id: true }
     })
 
-    if (!startOnboarding || !startOnboarding.manager_id) {
+    let managerId = startOnboarding?.manager_id
+
+    if (!managerId) {
         // Essayer aussi via token_formulaire au cas où
         const altOnboarding = await prisma.onboarding.findUnique({
             where: { token_formulaire: token },
@@ -25,12 +27,12 @@ export async function GET(req: NextRequest) {
         if (!altOnboarding || !altOnboarding.manager_id) {
             return NextResponse.json({ error: 'Jeton invalide ou expiré' }, { status: 404 })
         }
-        startOnboarding.manager_id = altOnboarding.manager_id
+        managerId = altOnboarding.manager_id
     }
 
     // 2. Récupérer tous les dossiers de ce manager
     const onboardings = await prisma.onboarding.findMany({
-      where: { manager_id: startOnboarding.manager_id },
+      where: { manager_id: managerId },
       include: {
         agent: true,
         tasks: true,
