@@ -1,8 +1,8 @@
-import cron from 'node-cron'
+import cron, { ScheduledTask } from 'node-cron'
 import { prisma } from './db'
 
 class CronManager {
-  private tasks: Map<number, cron.ScheduledTask> = new Map()
+  private tasks: Map<number, ScheduledTask> = new Map()
 
   constructor() {
     console.log('[CRON] Initializing CronManager singleton...')
