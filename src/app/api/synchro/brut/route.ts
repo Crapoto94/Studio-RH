@@ -8,9 +8,15 @@ import { Client } from 'ldapts'
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || (session.user as any)?.role !== 'admin') {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+    // Autentication check: allowing session OR Internal Secret (for Cron)
+    const authHeader = req.headers.get('Authorization')
+    const isInternal = process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`
+
+    if (!isInternal) {
+      const session = await getServerSession(authOptions)
+      if (!session || (session.user as any)?.role !== 'admin') {
+        return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+      }
     }
 
     // 1. Log début

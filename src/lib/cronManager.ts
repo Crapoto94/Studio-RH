@@ -47,7 +47,15 @@ class CronManager {
                return
         }
 
-        const res = await fetch(`${baseUrl}${endpoint}`, { method: 'POST' })
+        const headers: Record<string, string> = { method: 'POST' } as any
+        if (process.env.CRON_SECRET) {
+            headers['Authorization'] = `Bearer ${process.env.CRON_SECRET}`
+        }
+
+        const res = await fetch(`${baseUrl}${endpoint}`, { 
+            method: 'POST',
+            headers
+        })
         const data = await res.json()
         console.log(`[CRON] Job ${jobId} finished with status: ${res.status}`, data)
     } catch (e) {
