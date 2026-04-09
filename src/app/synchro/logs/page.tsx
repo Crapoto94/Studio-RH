@@ -105,9 +105,15 @@ export default function SynchroLogsPage() {
                     )}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <Badge variant={s.statut === 'success' ? 'success' : 'outline'} className="text-[9px] uppercase font-black">
-                        {s.type}
-                      </Badge>
+                    <Badge 
+                      variant="outline" 
+                      className={cn(
+                        "text-[9px] uppercase font-black",
+                        s.statut === 'success' ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "text-slate-500 border-slate-200"
+                      )}
+                    >
+                      {s.type}
+                    </Badge>
                       <span className="text-[10px] font-bold text-slate-400">
                         {new Date(s.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
