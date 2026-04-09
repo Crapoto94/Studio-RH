@@ -300,6 +300,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Tâches dynamiques par logiciel (via DSIHub / MagApp) ──────────────────
+    const appUrlParam2 = await prisma.parametre.findUnique({ where: { cle: 'APP_BASE_URL' } })
+    const publicUrl = appUrlParam2?.valeur || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || req.nextUrl.origin
+
     if (Array.isArray(responses.logiciels_metiers) && responses.logiciels_metiers.length > 0) {
         try {
             const dsihubParam = await prisma.parametre.findUnique({ where: { cle: 'DSIHUB_API_URL' } })
