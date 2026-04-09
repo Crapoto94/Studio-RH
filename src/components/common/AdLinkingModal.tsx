@@ -61,7 +61,7 @@ export function AdLinkingModal({ agent, open, onOpenChange }: AdLinkingModalProp
 
   return (
     <Dialog open={open} onOpenChange={handleOpenEnter}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md bg-white shadow-2xl border-none">
         <DialogHeader>
           <DialogTitle>Liaison AD Manuelle</DialogTitle>
         </DialogHeader>
