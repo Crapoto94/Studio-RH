@@ -6,7 +6,7 @@ import { useSession, signOut } from 'next-auth/react'
 import {
   LayoutDashboard, Users, RefreshCw, GitBranch,
   AlignLeft, UserCheck, Settings, Database,
-  ChevronLeft, ChevronRight, LogOut,
+  ChevronLeft, ChevronRight, LogOut, History,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/',             label: 'Dashboard',      icon: LayoutDashboard },
   { href: '/agents',       label: 'Agents',         icon: Users },
   { href: '/synchro',      label: 'Synchro',        icon: RefreshCw },
+  { href: '/synchro/logs', label: 'Logs RH',        icon: History },
   { href: '/hierarchie',   label: 'Hiérarchie',     icon: GitBranch },
   { href: '/alignements',  label: 'Alignements',    icon: AlignLeft },
   { href: '/onboarding',   label: 'Onboarding',     icon: UserCheck },

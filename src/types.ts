@@ -156,3 +156,16 @@ export interface DashboardStats {
   recenteLogs: SynchroLog[]
   recentOnboarding: OnboardingRecord[]
 }
+// ── DSIHub / MagApp ───────────────────────────────────────────────────────────
+export interface MagAppApp {
+  id: number
+  category_id: number
+  name: string
+  description?: string
+  url: string
+  icon?: string
+  app_type?: string
+  present_magapp?: string
+  present_onboard?: string
+  email_createur?: string
+}

@@ -3,25 +3,38 @@ import { prisma } from '@/lib/db'
 
 export async function GET() {
   try {
-    const now = new Date().toISOString()
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-
-    // Requêtes SQL Brutes pour contourner les limitations de l'abstraction Prisma/SQLite
-    const [newAgentsRes, recentlyLeftRes, futureAgentsRes] = await Promise.all([
+    // Utilisation de Prisma count (correctement géré par Prisma 5.14 avec SQLite)
+    const [newAgents, recentlyLeft, futureAgents] = await Promise.all([
       // Nouveaux agents (-30j)
-      prisma.$queryRawUnsafe(`SELECT COUNT(*) as count FROM "REF_AGENTS" WHERE date_arrivee BETWEEN '${thirtyDaysAgo}' AND '${now}'`),
+      prisma.refAgent.count({
+        where: {
+          date_arrivee: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), lte: new Date() }
+        }
+      }),
       // Agents partis (-30j)
-      prisma.$queryRawUnsafe(`SELECT COUNT(*) as count FROM "REF_AGENTS" WHERE date_depart BETWEEN '${thirtyDaysAgo}' AND '${now}'`),
+      prisma.refAgent.count({
+        where: {
+          OR: [
+            { date_depart: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), lte: new Date() } },
+            { 
+              actif: false, 
+              plus_vu: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), lte: new Date() } 
+            }
+          ]
+        }
+      }),
       // Futurs agents
-      prisma.$queryRawUnsafe(`SELECT COUNT(*) as count FROM "REF_AGENTS" WHERE date_arrivee > '${now}'`)
+      prisma.refAgent.count({
+        where: {
+          date_arrivee: { gt: new Date() }
+        }
+      })
     ])
 
-    const getCount = (res: any) => Number(res[0]?.count || 0)
-
     return NextResponse.json({
-      newAgents: getCount(newAgentsRes),
-      recentlyLeft: getCount(recentlyLeftRes),
-      futureAgents: getCount(futureAgentsRes)
+      newAgents,
+      recentlyLeft,
+      futureAgents
     })
   } catch (error) {
     console.error('API Counts Error:', error)

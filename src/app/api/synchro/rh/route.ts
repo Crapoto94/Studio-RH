@@ -20,7 +20,10 @@ export async function POST(req: NextRequest) {
     })
 
     const updateProgress = async (prog: number, msg: string) => {
-      await prisma.$executeRaw`UPDATE "SYNCHRO_LOGS" SET progress = ${prog}, message = ${msg} WHERE id = ${log.id}`
+      await prisma.synchroLog.update({ 
+        where: { id: log.id }, 
+        data: { progress: prog, message: msg } 
+      })
     }
 
     await updateProgress(5, 'Chargement des données brutes...')
@@ -36,6 +39,7 @@ export async function POST(req: NextRequest) {
     const activePositions = (config['RH_POSITIONS_ACTIVES'] || '').split(',').filter(Boolean)
 
     const stats = { agents: { updated: 0, created: 0, left: 0 }, hier: { updated: 0, created: 0 }, matched_ad: 0, matched_azure: 0 }
+    const modifiedAgentsSet = new Set<string>()
 
     // Helper for fuzzy matching names
     const normalize = (s: string) => s?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim() || ""
@@ -43,10 +47,8 @@ export async function POST(req: NextRequest) {
     await updateProgress(10, 'Indexation des données pour le rapprochement...')
 
     // Fetch existing agents to determine creations, updates, and departures
-    const existingRefAgents = await prisma.refAgent.findMany({
-      select: { matricule: true, actif: true }
-    })
-    const refAgentMap = new Map(existingRefAgents.map(a => [a.matricule, a.actif]))
+    const existingRefAgents = await prisma.refAgent.findMany()
+    const refAgentMap = new Map(existingRefAgents.map(a => [a.matricule, a]))
     const currentBatchMatricules = new Set<string>()
 
     // Optimization: Index AD and Azure in Maps for O(1) lookup
@@ -124,47 +126,86 @@ export async function POST(req: NextRequest) {
       // Active status based on POSITION_L
       const isActif = activePositions.length === 0 || activePositions.includes(brut.POSITION_L || '')
 
+      const existingAgent = refAgentMap.get(matStrRaw) as any
+
       // Calcul des stats (Nouveaux, Modifiés, Partis)
-      if (!refAgentMap.has(matStrRaw)) {
+      if (!existingAgent) {
          stats.agents.created++
       } else {
-         const wasActif = refAgentMap.get(matStrRaw)
+         const wasActif = existingAgent.actif
          if (wasActif === true && isActif === false) {
             stats.agents.left++
-         } else {
-            stats.agents.updated++
          }
       }
 
-      // Use raw SQL to bypass Prisma client if it's not updated with 'actif' field
+      // Use native Prisma upsert to be fully compatible with SQLite and Postgres
       try {
-        await prisma.$executeRaw`
-          INSERT INTO "REF_AGENTS" (
-            matricule, nom, prenom, position_l, code_affect, nom_affect_l, 
-            code_service, nom_service, code_direction, nom_direction, 
-            code_dg_cab, nom_dg_cab_l, fonction_l, poste_l, date_arrivee, date_depart, plus_vu, 
-            ad_id, azure_id, mail, mobile, actif, licence, updated_at
-          ) VALUES (
-            ${matStrRaw}, ${brut.NOM || 'Inconnu'}, ${brut.PRENOM || 'Inconnu'}, ${brut.POSITION_L}, 
-            ${brut.AFFECT}, ${brut.AFFECT_L}, ${brut.SERVICE}, 
-            ${brut.SERVICE_L}, ${brut.DIRECTION}, ${brut.DIRECTION_L}, 
-            ${brut.DG_CAB}, ${brut.DG_CAB_L || ''}, ${brut.FONCTION_L || ''}, ${brut.POSTE_L || ''}, ${brut.DATE_ARRIVEE}, 
-            ${brut.DATE_DEPART}, ${new Date().toISOString()}, 
-            ${adId}, ${azureId}, ${email}, ${mobile}, ${isActif ? 1 : 0}, ${license}, ${new Date().toISOString()}
-          ) 
-          ON CONFLICT(matricule) DO UPDATE SET
-            nom=excluded.nom, prenom=excluded.prenom, position_l=excluded.position_l,
-            code_affect=excluded.code_affect, nom_affect_l=excluded.nom_affect_l,
-            code_service=excluded.code_service, nom_service=excluded.nom_service,
-            code_direction=excluded.code_direction, nom_direction=excluded.nom_direction,
-            code_dg_cab=excluded.code_dg_cab, nom_dg_cab_l=excluded.nom_dg_cab_l,
-            fonction_l=excluded.fonction_l, poste_l=excluded.poste_l,
-            date_arrivee=excluded.date_arrivee, date_depart=excluded.date_depart,
-            plus_vu=excluded.plus_vu, ad_id=excluded.ad_id, azure_id=excluded.azure_id,
-            mail=excluded.mail, mobile=excluded.mobile,
-            licence=excluded.licence,
-            actif=excluded.actif, updated_at=excluded.updated_at
-        `
+        const agentData = {
+          nom: brut.NOM || 'Inconnu',
+          prenom: brut.PRENOM || 'Inconnu',
+          position_l: brut.POSITION_L,
+          code_affect: brut.AFFECT,
+          nom_affect_l: brut.AFFECT_L,
+          code_service: brut.SERVICE,
+          nom_service: brut.SERVICE_L,
+          code_direction: brut.DIRECTION,
+          nom_direction: brut.DIRECTION_L,
+          code_dg_cab: brut.DG_CAB,
+          nom_dg_cab_l: brut.DG_CAB_L || '',
+          fonction_l: brut.FONCTION_L || '',
+          poste_l: brut.POSTE_L || '',
+          date_arrivee: brut.DATE_ARRIVEE ? new Date(brut.DATE_ARRIVEE) : null,
+          date_depart: brut.DATE_DEPART ? new Date(brut.DATE_DEPART) : null,
+          plus_vu: null,
+          ad_id: adId,
+          azure_id: azureId,
+          mail: email,
+          mobile: mobile,
+          actif: isActif,
+          licence: license,
+        }
+        
+        // DÉTECTION DES CHANGEMENTS (LOGS)
+        if (existingAgent) {
+          const fieldsToMonitor = [
+            'nom', 'prenom', 'position_l', 'code_affect', 'nom_affect_l', 
+            'code_service', 'nom_service', 'code_direction', 'nom_direction', 
+            'code_dg_cab', 'nom_dg_cab_l', 'fonction_l', 'poste_l', 
+            'ad_id', 'azure_id', 'mail', 'mobile', 'actif'
+          ]
+
+          for (const field of fieldsToMonitor) {
+            let oldVal = String(existingAgent[field] || '')
+            let newVal = String((agentData as any)[field] || '')
+
+            // Spécial pour les dates si ajoutées plus tard
+            if (existingAgent[field] instanceof Date) oldVal = existingAgent[field].toISOString()
+            if ((agentData as any)[field] instanceof Date) newVal = (agentData as any)[field].toISOString()
+
+            if (oldVal !== newVal) {
+              modifiedAgentsSet.add(matStrRaw)
+              await (prisma.syncAgentLog as any).create({
+                data: {
+                  synchro_id: log.id,
+                  matricule: matStrRaw,
+                  agent_nom: `${agentData.nom} ${agentData.prenom}`,
+                  field: field,
+                  old_value: oldVal,
+                  new_value: newVal
+                }
+              })
+            }
+          }
+        }
+
+        await prisma.refAgent.upsert({
+          where: { matricule: matStrRaw },
+          create: {
+             matricule: matStrRaw,
+             ...agentData
+          },
+          update: agentData
+        })
       } catch (err) {
         console.error(`Error upserting agent ${matStrRaw}:`, err)
       }
@@ -177,15 +218,19 @@ export async function POST(req: NextRequest) {
 
     // Gestion des agents qui ne sont plus dans le fichier brut (partis ou absents)
     const missingMatricules = Array.from(refAgentMap.entries())
-       .filter(([mat, actif]) => actif === true && mat && !currentBatchMatricules.has(mat))
+       .filter(([mat, agent]) => (agent as any).actif === true && mat && !currentBatchMatricules.has(mat))
        .map(([mat]) => mat as string)
 
     if (missingMatricules.length > 0) {
        stats.agents.left += missingMatricules.length
        // Met à jour en masse comme inactifs
-       for (const missingMat of missingMatricules) {
-           await prisma.$executeRaw`UPDATE "REF_AGENTS" SET actif = 0, updated_at = ${new Date().toISOString()} WHERE matricule = ${missingMat}`
-       }
+       await prisma.refAgent.updateMany({
+           where: { matricule: { in: missingMatricules } },
+           data: { 
+             actif: false,
+             plus_vu: new Date()
+           }
+       })
     }
 
     // 4. Process each BRUT_HIERARCHIE -> REF_HIERARCHIE
@@ -228,7 +273,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Final Log
-    const finalMsg = `Consolidation terminée. Agents : ${stats.agents.created} créés, ${stats.agents.updated} modifiés, ${stats.agents.left} partis. Hiérarchie : ${stats.hier.created + stats.hier.updated}. Matches : AD(${stats.matched_ad}) Azure(${stats.matched_azure})`
+    const modifiedCount = modifiedAgentsSet.size
+    stats.agents.updated = modifiedCount
+    
+    const finalMsg = `Consolidation terminée. Agents : ${stats.agents.created} créés, ${modifiedCount} modifiés, ${stats.agents.left} partis. Hiérarchie : ${stats.hier.created + stats.hier.updated}. Matches : AD(${stats.matched_ad}) Azure(${stats.matched_azure})`
     await prisma.synchroLog.update({
       where: { id: log.id },
       data: {

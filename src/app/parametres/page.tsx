@@ -12,7 +12,10 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { OnboardingSettings } from '@/components/parametres/OnboardingSettings'
+import { MailTemplatesSettings } from '@/components/parametres/MailTemplatesSettings'
 import { RolesAndUsers } from '@/components/parametres/RolesAndUsers'
+import { MagAppApp } from '@/types'
+import { RichTextEditor } from '@/components/common/RichTextEditor'
 
 // Import de l'éditeur riche dynamiquement (côté client uniquement)
 const ReactQuill = dynamic(() => import('react-quill-new'), { 
@@ -46,58 +49,6 @@ function TestResult({ status, message }: { status: TestStatus, message?: string 
   return <span className="flex items-center gap-1 text-xs text-red-400"><XCircle size={12} /> {message || 'Échec de connexion'}</span>
 }
 
-// ─ Rich Text Editor ───────────────────────────────────────────────────────────
-function RichTextEditor({ value, onChange, label }: { value: string, onChange: (v: string) => void, label: string }) {
-  const [isCodeMode, setIsCodeMode] = useState(false)
-
-  const modules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'color': [] }, { 'background': [] }],
-      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-      [{ 'align': [] }],
-      ['link', 'clean'],
-    ],
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex justify-between items-center bg-slate-50 px-4 py-2 rounded-t-xl border-x border-t border-slate-200">
-        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
-        <button 
-          onClick={() => setIsCodeMode(!isCodeMode)}
-          className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold transition-all ${
-            isCodeMode ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
-          }`}
-        >
-          <FileText size={12} />
-          {isCodeMode ? 'Mode Visuel' : 'Mode Source (HTML)'}
-        </button>
-      </div>
-
-      <div className="relative group">
-        {isCodeMode ? (
-          <textarea
-            className="w-full h-[300px] p-4 bg-slate-900 text-indigo-300 font-mono text-xs rounded-b-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-          />
-        ) : (
-          <div className="bg-white rounded-b-xl overflow-hidden border border-slate-200">
-             <ReactQuill 
-               theme="snow"
-               value={value}
-               onChange={onChange}
-               modules={modules}
-               className="h-[250px] mb-12"
-             />
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
 
 // ─ Page ───────────────────────────────────────────────────────────────────────
 export default function ParametresPage() {
@@ -115,7 +66,7 @@ export default function ParametresPage() {
             <Tabs defaultValue="ad_azure" className="w-full h-full flex flex-col">
               <TabsList className="bg-slate-50 border-b border-slate-200 p-2 w-full justify-start overflow-x-auto rounded-t-2xl h-auto shrink-0">
                 <TabsTrigger value="ad_azure" className="gap-2"><Server size={14} /> AD &amp; Entra</TabsTrigger>
-                <TabsTrigger value="api" className="gap-2"><Blocks size={14} /> API Ville</TabsTrigger>
+                <TabsTrigger value="api" className="gap-2"><Blocks size={14} /> API Ville Ivry</TabsTrigger>
                 <TabsTrigger value="hierarchie" className="gap-2"><FileText size={14} /> Hiérarchies</TabsTrigger>
                 <TabsTrigger value="rh" className="gap-2"><Shield size={14} /> Règles RH</TabsTrigger>
                 <TabsTrigger value="onboarding" className="gap-2"><FileText size={14} /> Onboarding</TabsTrigger>
@@ -130,7 +81,7 @@ export default function ParametresPage() {
                 </TabsContent>
 
                 <TabsContent value="api" className="m-0 space-y-6 p-8 w-full max-w-none animate-in fade-in duration-500">
-                  <SettingSection title="API Ville (Ciril ASTRE & SMS)">
+                  <SettingSection title="API Ville Ivry">
                     <ApiTab />
                   </SettingSection>
                 </TabsContent>
@@ -466,6 +417,8 @@ function ApiTab() {
       </div>
 
       <SqlZone />
+
+      <DsihubSection />
 
       <div className="mt-8 pt-6 border-t border-slate-200">
         <h4 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2 uppercase tracking-wider">
@@ -834,6 +787,11 @@ function MailSection() {
             dbKey="MAIL_SENDER_EMAIL" 
             placeholder="dsihub@fbc.fr" 
           />
+          <SimpleInput 
+            label="URL de base (Public)" 
+            dbKey="APP_BASE_URL" 
+            placeholder="http://localhost:3000" 
+          />
         </div>
         <SimpleRichText 
           label="Template HTML Global" 
@@ -841,20 +799,8 @@ function MailSection() {
         />
       </SettingSection>
 
-      <SettingSection title="Messages Contextuels (Corps du mail)">
-        <p className="text-sm text-slate-500 mb-4">
-          Ces textes seront injectés dans le template global ci-dessus (utilisez <code>{"{{CONTENT}}"}</code> dans le template).
-        </p>
-        <div className="space-y-12">
-          <SimpleRichText 
-            label="Message Manager (Initial/Rappel)" 
-            dbKey="MAIL_MSG_MANAGER" 
-          />
-          <SimpleRichText 
-            label="Message Responsable Logistique" 
-            dbKey="MAIL_MSG_WORKFLOW" 
-          />
-        </div>
+      <SettingSection title="Messages Contextuels">
+        <MailTemplatesSettings />
       </SettingSection>
 
       <SettingSection title="Test d'envoi">
@@ -922,6 +868,96 @@ function SimpleTextarea({ label, dbKey, placeholder, rows = 3 }: {
         placeholder={placeholder}
         className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-400 font-mono transition-colors" 
       />
+    </div>
+  )
+}
+
+// ─ DSIHub Section ─────────────────────────────────────────────────────────────
+function DsihubSection() {
+  const { data: params = {} } = useParametres()
+  const queryClient = useQueryClient()
+  const [loading, setLoading] = useState(false)
+  const [apps, setApps] = useState<MagAppApp[]>([])
+  const [error, setError] = useState('')
+
+  const fetchApps = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/dsihub/apps')
+      const json = await res.json()
+      if (json.error) throw new Error(json.message || json.error)
+      setApps(json.data || [])
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="mt-8 pt-6 border-t border-slate-200">
+      <h4 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2 uppercase tracking-wider">
+        <Wifi size={16} className="text-indigo-500" /> API DSIHub & MagApp
+      </h4>
+
+      <div className="space-y-4">
+        <div className="max-w-2xl">
+          <SimpleInput 
+            label="URL API DSIHub" 
+            dbKey="DSIHUB_API_URL" 
+            placeholder="http://10.103.130.106:3001/api" 
+          />
+          <p className="text-[10px] text-slate-400 mt-1 ml-0 sm:ml-60">
+            L'URL du backend AppDSI pour lister les applications MagApp.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={fetchApps} 
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-white text-sm font-semibold hover:bg-slate-900 transition-colors disabled:opacity-50"
+          >
+            {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+            Lister les applications (MagApp)
+          </button>
+          
+          {error && <span className="text-xs text-red-500 flex items-center gap-1 font-medium"><XCircle size={14} /> {error}</span>}
+          {apps.length > 0 && <span className="text-xs text-emerald-600 flex items-center gap-1 font-medium"><CheckCircle2 size={14} /> {apps.length} applications trouvées</span>}
+        </div>
+
+        {apps.length > 0 && (
+          <div className="mt-4 border border-slate-200 rounded-2xl overflow-hidden shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-wider">
+                <tr>
+                  <th className="px-4 py-3 text-left">Nom</th>
+                  <th className="px-4 py-3 text-left">Description</th>
+                  <th className="px-4 py-3 text-left">URL</th>
+                  <th className="px-4 py-3 text-center">MagApp</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {apps.map((app: MagAppApp) => (
+                  <tr key={app.id} className="hover:bg-indigo-50/30 transition-colors">
+                    <td className="px-4 py-3 font-bold text-slate-700">{app.name}</td>
+                    <td className="px-4 py-3 text-slate-500 max-w-[300px] truncate" title={app.description}>{app.description}</td>
+                    <td className="px-4 py-3 font-mono text-[11px] text-indigo-600 truncate max-w-[200px]">{app.url}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        app.present_magapp === 'oui' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'
+                      }`}>
+                        {app.present_magapp === 'oui' ? 'OUI' : 'NON'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

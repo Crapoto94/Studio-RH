@@ -563,50 +563,70 @@ function OnboardingFormContent() {
                           )}
 
                           {field.type === 'multiselect' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                              {lists[field.options]?.map((opt: any) => {
-                                const isObj = typeof opt === 'object' && opt !== null;
-                                const name = isObj ? opt.nom : opt;
-                                const description = isObj ? opt.description : null;
-                                const isChecked = formData[field.id]?.includes(name);
+                            <div className="space-y-4 pt-1">
+                              {data.dsihubError && (
+                                <div className="flex items-start gap-3 p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 animate-in fade-in slide-in-from-top-1 duration-300">
+                                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                                  <div className="text-[11px] font-bold leading-relaxed tracking-wide">
+                                    <p className="uppercase mb-0.5">Erreur API DSIHub</p>
+                                    <p className="font-medium opacity-80 normal-case">{data.dsihubError}</p>
+                                  </div>
+                                </div>
+                              )}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {lists[field.options]?.map((opt: any) => {
+                                  const isObj = typeof opt === 'object' && opt !== null;
+                                  const name = isObj ? opt.nom : opt;
+                                  const description = isObj ? opt.description : null;
+                                  const icon = isObj ? opt.icon : null;
+                                  const isChecked = formData[field.id]?.includes(name);
 
-                                return (
-                                  <label key={name} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${isChecked ? 'bg-indigo-50 border-indigo-100' : 'bg-white border-slate-50 hover:border-slate-100'}`}>
-                                    <input
-                                      type="checkbox"
-                                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                      checked={isChecked}
-                                      onChange={(e) => {
-                                        const current = formData[field.id] || []
-                                        if (e.target.checked) setFormData({ ...formData, [field.id]: [...current, name] })
-                                        else setFormData({ ...formData, [field.id]: current.filter((c: string) => c !== name) })
-                                      }}
-                                    />
-                                    <div className="flex-1 flex items-center justify-between gap-2">
-                                        <span className={`text-[11px] font-bold ${isChecked ? 'text-indigo-700' : 'text-slate-600'}`}>
-                                            {name}
-                                        </span>
-                                        {description && (
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <HelpCircle size={14} className="text-slate-300 hover:text-indigo-400 cursor-help" />
-                                                </TooltipTrigger>
-                                                <TooltipContent side="right" className="bg-slate-900 text-white text-[10px] font-medium border-none p-3 shadow-xl max-w-[200px]">
-                                                    {description}
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        )}
-                                    </div>
-                                  </label>
-                                );
-                              })}
+                                  return (
+                                    <label key={name} className={`flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all ${isChecked ? 'bg-indigo-50 border-indigo-200 shadow-md ring-4 ring-indigo-500/5' : 'bg-white border-slate-100 hover:border-slate-200'}`}>
+                                      <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        checked={isChecked}
+                                        onChange={(e) => {
+                                          const current = formData[field.id] || []
+                                          if (e.target.checked) setFormData({ ...formData, [field.id]: [...current, name] })
+                                          else setFormData({ ...formData, [field.id]: current.filter((c: string) => c !== name) })
+                                        }}
+                                      />
+                                      
+                                      {icon && (
+                                        <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center overflow-hidden border border-slate-100 shrink-0">
+                                          <img src={icon} alt={name} className="w-7 h-7 object-contain" />
+                                        </div>
+                                      )}
+
+                                      <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
+                                          <span className={`text-[11px] font-black uppercase tracking-tight truncate ${isChecked ? 'text-indigo-700' : 'text-slate-600'}`}>
+                                              {name}
+                                          </span>
+                                          {description && (
+                                              <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                      <HelpCircle size={14} className="text-slate-300 hover:text-indigo-400 cursor-help shrink-0" />
+                                                  </TooltipTrigger>
+                                                  <TooltipContent side="right" className="bg-slate-900 text-white text-[10px] font-medium border-none p-3 shadow-xl max-w-[200px]">
+                                                      {description}
+                                                  </TooltipContent>
+                                              </Tooltip>
+                                          )}
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
                             </div>
                           )}
-                            </div>
-                          )
-                        })}
-                      </CardContent>
-                    </Card>
+                        </div>
+                      )
+                    })}
+                  </CardContent>
+                </Card>
+
                   </div>
                 ))}
               </div>
