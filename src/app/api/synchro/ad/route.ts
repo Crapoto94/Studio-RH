@@ -18,10 +18,16 @@ export async function POST(req: NextRequest) {
       }
     })
     
-    await prisma.$executeRaw`UPDATE "SYNCHRO_LOGS" SET progress = 0 WHERE id = ${log.id}`
+    await prisma.synchroLog.update({
+      where: { id: log.id },
+      data: { progress: 0 }
+    })
 
     const updateProgress = async (prog: number, msg?: string) => {
-      await prisma.$executeRaw`UPDATE "SYNCHRO_LOGS" SET progress = ${prog}, message = ${msg || null} WHERE id = ${log.id}`
+      await prisma.synchroLog.update({
+        where: { id: log.id },
+        data: { progress: prog, message: msg || null }
+      })
     }
 
     // 1. Fetch Data
@@ -51,7 +57,10 @@ export async function POST(req: NextRequest) {
       })
 
       if (match) {
-        await prisma.$executeRaw`UPDATE "REF_AGENTS" SET ad_id = ${match.sam_account} WHERE id = ${agent.id}`
+        await prisma.refAgent.update({
+          where: { id: agent.id },
+          data: { ad_id: match.sam_account }
+        })
         matchedCount++
       }
 
@@ -61,7 +70,10 @@ export async function POST(req: NextRequest) {
     }
 
     const msg = `Liaison AD terminée : ${matchedCount} agents liés sur ${total}.`
-    await prisma.$executeRaw`UPDATE "SYNCHRO_LOGS" SET progress = 100, message = ${msg}, statut = 'success' WHERE id = ${log.id}`
+    await prisma.synchroLog.update({
+      where: { id: log.id },
+      data: { progress: 100, message: msg, statut: 'success' }
+    })
 
     return NextResponse.json({ success: true, matchedCount, total })
   } catch (error) {

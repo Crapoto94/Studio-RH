@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { notifyManagerCompletion } from '@/lib/onboarding'
 
 // GET: Récupère les infos de la tâche via son token
 export async function GET(req: NextRequest) {
@@ -80,6 +81,9 @@ export async function POST(req: NextRequest) {
         where: { id: task.onboarding_id },
         data: { statut: 'termine' }
       })
+
+      // Déclenchement du mail de fin d'onboarding au manager
+      await notifyManagerCompletion(task.onboarding_id, req.nextUrl.origin).catch(e => console.error('[ONBOARDING-COMPLETION-NOTIFY-FAILED]', e));
     }
 
     // 4. Log d'audit (optionnel)

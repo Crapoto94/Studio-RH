@@ -30,10 +30,8 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Using queryRaw to bypass any Prisma client/schema mismatch for BRUT tables
-    // We load all data because SQLite case-sensitivity in the IN clause is tricky
     const [brutRhs, brutAds] = await Promise.all([
-      prisma.$queryRawUnsafe(`SELECT * FROM "BRUT_RH"`) as Promise<any[]>,
+      prisma.brutRh.findMany(),
       prisma.brutAd.findMany()
     ])
 
@@ -54,8 +52,8 @@ export async function GET(req: NextRequest) {
 
     // Indexation par matricule normalisé (sans zéros non significatifs)
     const rhMap = new Map()
-    brutRhs.forEach(rh => {
-      const m = normalizeMatricule(rh.MATRICULE || rh.matricule)
+    brutRhs.forEach((rh: any) => {
+      const m = normalizeMatricule(rh.MATRICULE)
       if (m) rhMap.set(m, rh)
     })
 

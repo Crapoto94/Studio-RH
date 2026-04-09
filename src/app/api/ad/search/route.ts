@@ -12,13 +12,21 @@ export async function GET(req: NextRequest) {
     const q = searchParams.get('q') || ''
     const term = `%${q}%`
     
-    // Using raw SQL for case-insensitive search in SQLite and bypassing stale Prisma schema issues
-    const accounts = await prisma.$queryRawUnsafe(`
-      SELECT sam_account, display_name, mail 
-      FROM "BRUT_AD" 
-      WHERE display_name LIKE ? OR sam_account LIKE ? OR mail LIKE ? 
-      LIMIT 10
-    `, term, term, term)
+    const accounts = await prisma.brutAd.findMany({
+      where: {
+        OR: [
+          { display_name: { contains: q } },
+          { sam_account: { contains: q } },
+          { mail: { contains: q } }
+        ]
+      },
+      select: {
+        sam_account: true,
+        display_name: true,
+        mail: true
+      },
+      take: 10
+    })
 
     return NextResponse.json(accounts)
   } catch (err: any) {

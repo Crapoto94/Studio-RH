@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { sendEmailWithTemplate } from '@/lib/api-ville'
 import { randomUUID } from 'crypto'
+import { notifyManager } from '@/lib/onboarding'
 
 export async function GET(
   req: NextRequest,
@@ -114,37 +114,11 @@ export async function PATCH(
       data: dataToUpdate
     })
 
-    // 2. Si Lancement demandé, on envoi le mail
+    // 2. Si Lancement demandé, on envoi le mail via la fonction centralisée
     if (body.action === 'launch' && dataToUpdate.manager_id) {
-        const manager = await prisma.refAgent.findUnique({ where: { id: dataToUpdate.manager_id } })
-        
-        const managerEmail = manager?.mail || manager?.azure_id
-        if (!managerEmail) {
-           return NextResponse.json({ error: "Impossible de notifier le manager : aucune adresse e-mail existante dans la base RH." }, { status: 400 })
-        }
-
-        if (manager && managerEmail) {
-            const agentName = currentOnb.agent ? `${currentOnb.agent.prenom} ${currentOnb.agent.nom}` : `${dataToUpdate.prenom_temp || ''} ${dataToUpdate.nom_temp || ''}`
-            const publicUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
-            const mailParam = await prisma.parametre.findUnique({ where: { cle: 'MAIL_MSG_MANAGER' } })
-            const bodyTemplate = mailParam?.valeur || "Bonjour {{MANAGER_NOM}}, merci de compléter le formulaire pour {{AGENT_NOM}} : {{FORM_URL}}"
-            
-            try {
-               await sendEmailWithTemplate({
-                  to: managerEmail,
-                  subject: `📦 Nouvel arrivant : Formulaire à remplir (${agentName})`,
-                  body: bodyTemplate,
-                  onboarding_id: id,
-                  variables: {
-                      AGENT_NOM: agentName,
-                      MANAGER_NOM: `${manager.prenom} ${manager.nom}`,
-                      FORM_URL: `${publicUrl}/onboarding/form?token=${token}`
-                  }
-               })
-            } catch (err) {
-               console.error('[ONBOARDING-PATCH-MAIL-ERROR]', err)
-            }
-        }
+        // notifyManager gère les templates et l'URL de base dynamique
+        await notifyManager(updated, dataToUpdate.manager_id, req.nextUrl.origin)
+          .catch(err => console.error('[ONBOARDING-PATCH-MAIL-ERROR]', err))
     }
 
     return NextResponse.json(updated)
@@ -153,4 +127,3 @@ export async function PATCH(
     return NextResponse.json({ error: 'Internal Error' }, { status: 500 })
   }
 }
-

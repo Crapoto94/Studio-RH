@@ -7,7 +7,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { FormEditorTable } from './FormEditorTable'
 import { ListEditorTable } from './ListEditorTable'
 import { WorkflowEditorTable } from './WorkflowEditorTable'
-import { SoftwareEditorTable } from './SoftwareEditorTable'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -31,7 +30,6 @@ export function OnboardingSettings() {
   const [formJson, setFormJson] = useState<string | null>(null)
   const [listsJson, setListsJson] = useState<string | null>(null)
   const [workflowJson, setWorkflowJson] = useState<string | null>(null)
-  const [softwareJson, setSoftwareJson] = useState<string | null>(null)
 
   const saveParam = useMutation({
     mutationFn: async ({ key, value }: { key: string, value: string }) => {
@@ -51,7 +49,6 @@ export function OnboardingSettings() {
   const currentForm = formJson ?? params['ONBOARDING_FORM_CONFIG'] ?? '[]'
   const currentLists = listsJson ?? params['ONBOARDING_LISTS_CONFIG'] ?? '{}'
   const currentWorkflow = workflowJson ?? params['ONBOARDING_WORKFLOW_CONFIG'] ?? '[]'
-  const currentSoftware = softwareJson ?? params['ONBOARDING_SOFTWARE_CONFIG'] ?? '[]'
 
   if (isLoading) return <div className="p-20 text-center animate-pulse text-slate-400 font-black uppercase tracking-widest">Initialisation du Studio...</div>
 
@@ -93,9 +90,6 @@ export function OnboardingSettings() {
             </TabsTrigger>
             <TabsTrigger value="workflow" className="h-full rounded-none border-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-indigo-600 data-[state=active]:border-b-4 data-[state=active]:border-indigo-600 px-0 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 transition-all gap-2">
               <ShieldCheck size={14} /> Workflow Automatique
-            </TabsTrigger>
-            <TabsTrigger value="softwares" className="h-full rounded-none border-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-indigo-600 data-[state=active]:border-b-4 data-[state=active]:border-indigo-600 px-0 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 transition-all gap-2">
-              <Boxes size={14} /> Référentiel Logiciels
             </TabsTrigger>
           </TabsList>
 
@@ -199,7 +193,7 @@ export function OnboardingSettings() {
                    </button>
                 </div>
                 
-                <div className="w-full max-max-w-none">
+                <div className="w-full max-w-none">
                   {expertMode ? (
                     <textarea 
                       className="w-full h-[600px] font-mono p-6 border border-slate-200 rounded-xl focus:outline-none bg-slate-900 text-indigo-300 shadow-inner resize-none"
@@ -213,46 +207,8 @@ export function OnboardingSettings() {
                     />
                   )}
                 </div>
-             </div>
-          </TabsContent>
-
-          <TabsContent value="softwares" className="m-0 focus-visible:outline-none w-full flex-1 animate-in fade-in duration-300">
-             <div className="space-y-6 w-full max-w-none">
-                <div className="flex justify-between items-center">
-                   <div className="flex items-center gap-3">
-                      <Badge variant="outline" className="bg-white text-indigo-600 border-indigo-100 font-black uppercase text-[9px] py-1 px-3 tracking-widest shadow-sm">
-                          {expertMode ? "Mode JSON Manuel" : "Gestion Référentiel"}
-                      </Badge>
-                      {softwareJson !== null && (
-                        <Badge className="bg-amber-100 text-amber-700 font-bold text-[8px] uppercase tracking-widest border-none">Modifications non enregistrées</Badge>
-                      )}
-                   </div>
-                   <button 
-                      onClick={() => saveParam.mutate({ key: 'ONBOARDING_SOFTWARE_CONFIG', value: currentSoftware })}
-                      disabled={saveParam.isPending || softwareJson === null}
-                      className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg hover:bg-slate-800 disabled:opacity-30 active:scale-95"
-                   >
-                      {saveParam.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                      Enregistrer Logiciels
-                   </button>
-                </div>
-                
-                <div className="w-full max-w-none">
-                  {expertMode ? (
-                    <textarea 
-                      className="w-full h-[600px] font-mono p-6 border border-slate-200 rounded-xl focus:outline-none bg-slate-900 text-indigo-300 shadow-inner resize-none"
-                      value={currentSoftware}
-                      onChange={(e) => setSoftwareJson(e.target.value)}
-                    />
-                  ) : (
-                    <SoftwareEditorTable 
-                      value={currentSoftware}
-                      onChange={(val) => setSoftwareJson(val)}
-                    />
-                  )}
-                </div>
-             </div>
-          </TabsContent>
+              </div>
+           </TabsContent>
         </Tabs>
         
         <div className="mt-8 p-5 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex items-center gap-5">

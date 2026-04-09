@@ -45,11 +45,11 @@ export async function GET() {
     }
 
     // --- MIGRATION AGENTS ---
-    const agents: any[] = await prisma.$queryRaw`SELECT * FROM "REF_AGENTS"`
+    const agents = await prisma.refAgent.findMany()
     results.agents.total = agents.length
     results.agents.sample = agents.slice(0, 5).map(a => ({ id: a.id, nom: a.nom, date_arrivee: a.date_arrivee, date_depart: a.date_depart, plus_vu: a.plus_vu }))
     
-    for (const agent of agents) {
+    for (const agent of (agents as any[])) {
       try {
         let updateNeeded = false
         const fieldsToFix = ['date_arrivee', 'date_depart', 'plus_vu']
@@ -58,8 +58,10 @@ export async function GET() {
           if (isInvalidDate(val)) {
             const d = parseDate(val)
             if (d) {
-              const iso = d.toISOString()
-              await prisma.$executeRawUnsafe(`UPDATE "REF_AGENTS" SET "${field}" = '${iso}' WHERE "id" = ${agent.id}`)
+              await (prisma.refAgent as any).update({
+                where: { id: agent.id },
+                data: { [field]: d }
+              })
               updateNeeded = true
             }
           }
@@ -71,7 +73,7 @@ export async function GET() {
     }
 
     // --- MIGRATION ONBOARDING ---
-    const onboardings: any[] = await prisma.$queryRaw`SELECT * FROM "ONBOARDING"`
+    const onboardings = await prisma.onboarding.findMany()
     results.onboardings.total = onboardings.length
     results.onboardings.sample = onboardings.slice(0, 5).map(o => ({ id: o.id, agent_id: o.agent_id, date_arrivee_prevue: o.date_arrivee_prevue }))
 
@@ -81,8 +83,10 @@ export async function GET() {
         if (isInvalidDate(val)) {
           const d = parseDate(val)
           if (d) {
-            const iso = d.toISOString()
-            await prisma.$executeRawUnsafe(`UPDATE "ONBOARDING" SET "date_arrivee_prevue" = '${iso}' WHERE "id" = ${ob.id}`)
+            await prisma.onboarding.update({
+              where: { id: ob.id },
+              data: { date_arrivee_prevue: d }
+            })
             results.onboardings.migrated++
           }
         }
@@ -92,7 +96,7 @@ export async function GET() {
     }
 
     // --- MIGRATION ONBOARDING_TASKS ---
-    const tasks: any[] = await prisma.$queryRaw`SELECT * FROM "ONBOARDING_TASKS"`
+    const tasks = await prisma.onboardingTask.findMany()
     results.tasks.total = tasks.length
     for (const task of tasks) {
       try {
@@ -100,8 +104,10 @@ export async function GET() {
         if (isInvalidDate(val)) {
           const d = parseDate(val)
           if (d) {
-            const iso = d.toISOString()
-            await prisma.$executeRawUnsafe(`UPDATE "ONBOARDING_TASKS" SET "date_completion" = '${iso}' WHERE "id" = ${task.id}`)
+            await prisma.onboardingTask.update({
+              where: { id: task.id },
+              data: { date_completion: d }
+            })
             results.tasks.migrated++
           }
         }
@@ -111,23 +117,25 @@ export async function GET() {
     }
 
     // --- DIAGNOSTIQUE DE REQUÊTE ---
-    const nowIso = new Date().toISOString()
-    const futureSql: any[] = await prisma.$queryRawUnsafe(`SELECT COUNT(*) as count FROM "REF_AGENTS" WHERE date_arrivee > '${nowIso}'`)
+    const now = new Date()
     const futurePrismaCount = await prisma.refAgent.count({
       where: {
-        date_arrivee: { gte: nowIso } as any
+        date_arrivee: { gt: now }
       }
     })
 
-    const sampleFuture: any[] = await prisma.$queryRawUnsafe(`SELECT id, nom, date_arrivee FROM "REF_AGENTS" WHERE date_arrivee > '${nowIso}' LIMIT 3`)
+    const sampleFuture = await prisma.refAgent.findMany({
+      where: { date_arrivee: { gt: now } },
+      select: { id: true, nom: true, date_arrivee: true },
+      take: 3
+    })
 
     return NextResponse.json({ 
       success: true, 
       message: "Analyse et diagnostic terminés.",
       stats: results,
       debug: {
-        server_now: nowIso,
-        sql_future_count: Number((futureSql as any)[0]?.count || 0),
+        server_now: now.toISOString(),
         prisma_future_count: futurePrismaCount,
         sample_future_data: sampleFuture,
         total_in_db: agents.length

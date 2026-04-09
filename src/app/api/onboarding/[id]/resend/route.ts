@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { sendEmailWithTemplate } from '@/lib/api-ville'
-import { randomUUID } from 'crypto'
+import { notifyManager } from '@/lib/onboarding'
 
 export async function POST(
   req: NextRequest,
@@ -23,74 +22,23 @@ export async function POST(
       return NextResponse.json({ error: 'Onboarding introuvable' }, { status: 404 })
     }
 
-    // Lookup agent manuellement (bypass include Prisma)
-    let agent = onboarding.agent_id ? await prisma.refAgent.findUnique({ where: { id: onboarding.agent_id } }) : null
-
     if (!onboarding.manager_id) {
-        console.log(`[ONBOARDING-RESEND-DEBUG] Manager ID manquant pour Onboarding ${onboardingId}. Recherche alternative...`);
+        return NextResponse.json({ error: 'Manager ID manquant pour cet onboarding' }, { status: 400 })
     }
 
-    let manager = onboarding.manager_id ? await prisma.refAgent.findUnique({ where: { id: onboarding.manager_id } }) : null
-    
-    if (!manager) {
-        console.log(`[ONBOARDING-RESEND-DEBUG] Manager non trouvé par ID. Recherche par nom...`);
-    }
+    console.log(`[ONBOARDING-RESEND] Provoking resend for Onboarding ${onboardingId} to manager ${onboarding.manager_id}`);
 
-    if (!manager || !manager.mail) {
-        const err = !manager ? 'Manager introuvable' : 'Email du manager non renseigné';
-        console.error(`[ONBOARDING-RESEND-ERROR] ${err} pour Onboarding ${onboardingId}`);
-        return NextResponse.json({ error: err }, { status: 400 })
-    }
+    // Utiliser la fonction centralisée qui gère les URLs et les templates
+    const success = await notifyManager(onboarding, onboarding.manager_id, req.nextUrl.origin)
 
-    // Récupérer le message paramétré
-    const mailParam = await prisma.parametre.findUnique({ where: { cle: 'MAIL_MSG_MANAGER' } })
-    const bodyTemplate = mailParam?.valeur || "Bonjour {{MANAGER_NOM}}, merci de compléter le formulaire pour {{AGENT_NOM}} : {{FORM_URL}}"
-
-    const agentName = agent ? `${agent.prenom} ${agent.nom}` : `${onboarding.prenom_temp} ${onboarding.nom_temp}`
-    
-    // S'assurer qu'un token existe
-    let token = onboarding.token_formulaire
-    if (!token) {
-        token = randomUUID()
-        await (prisma.onboarding as any).update({
-            where: { id: onboardingId },
-            data: { token_formulaire: token }
-        })
-    }
-
-    const publicUrl = new URL(req.url).origin
-
-    console.log(`[ONBOARDING-RESEND-DEBUG] Envoi mail manager pour Onboarding ${onboardingId}`);
-    console.log(`[ONBOARDING-RESEND-DEBUG] To: ${manager.mail}`);
-    console.log(`[ONBOARDING-RESEND-DEBUG] Link: ${publicUrl}/onboarding/form?token=${token}`);
-
-    try {
-      const success = await sendEmailWithTemplate({
-        to: manager.mail,
-        subject: `[Rappel] 📦 Nouvel arrivant : Formulaire à remplir (${agentName})`,
-        body: bodyTemplate,
-        onboarding_id: onboarding.id,
-        variables: {
-          AGENT_NOM: agentName,
-          MANAGER_NOM: manager.prenom + ' ' + manager.nom,
-          FORM_URL: `${publicUrl}/onboarding/form?token=${token}`
-        }
-      })
-
-      if (success) {
-        console.log(`[ONBOARDING-RESEND-DEBUG] Succès appel sendEmailWithTemplate`);
+    if (success) {
         return NextResponse.json({ success: true })
-      } else {
-        console.error(`[ONBOARDING-RESEND-ERROR] Échec appel sendEmailWithTemplate (retour false)`);
-        return NextResponse.json({ error: 'Erreur lors de l\'envoi de l\'email (voir logs serveur)' }, { status: 500 })
-      }
-    } catch (sendError: any) {
-      console.error(`[ONBOARDING-RESEND-CRITICAL] Exception durant l'envoi:`, sendError.message);
-      return NextResponse.json({ error: `Exception: ${sendError.message}` }, { status: 500 })
+    } else {
+        return NextResponse.json({ error: 'Erreur lors de l\'envoide l\'email (voir logs serveur)' }, { status: 500 })
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('API Onboarding Resend POST Error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error', message: error.message }, { status: 500 })
   }
 }

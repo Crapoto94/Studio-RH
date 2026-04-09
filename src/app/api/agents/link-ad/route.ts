@@ -13,7 +13,10 @@ export async function POST(req: NextRequest) {
     const { agentId, adId } = await req.json()
     if (!agentId) return NextResponse.json({ error: 'Agent manquant' }, { status: 400 })
 
-    await prisma.$executeRaw`UPDATE "REF_AGENTS" SET ad_id = ${adId || null} WHERE id = ${agentId}`
+    await prisma.refAgent.update({
+      where: { id: agentId },
+      data: { ad_id: adId || null }
+    })
 
     return NextResponse.json({ success: true })
   } catch (err: any) {

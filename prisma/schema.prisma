@@ -129,35 +129,35 @@ model BrutAzure {
 }
 
 model RefAgent {
-  id                Int       @id @default(autoincrement())
-  matricule         String?   @unique
-  nom               String
-  prenom            String
-  position_l        String?
-  code_affect       String?
-  nom_affect_l      String?
-  code_service      String?
-  nom_service       String?
-  code_direction    String?
-  nom_direction     String?
-  code_dg_cab       String?
-  nom_dg_cab_l      String?
-  date_arrivee      DateTime?
-  date_depart       DateTime?
-  plus_vu           DateTime?
-  ad_id             String?
-  azure_id          String?
-  actif             Boolean   @default(true)
-  niveau_hierarchie String?   @default("agent")
-  licence           String?
-  mail              String?
-  mobile            String?
-  created_at        DateTime  @default(now())
-  updated_at        DateTime  @updatedAt
-  fonction_l        String?
-  poste_l           String?
-  onboardingAgents   Onboarding[] @relation("OnboardingAgent")
+  id                 Int          @id @default(autoincrement())
+  matricule          String?      @unique
+  nom                String
+  prenom             String
+  position_l         String?
+  code_affect        String?
+  nom_affect_l       String?
+  code_service       String?
+  nom_service        String?
+  code_direction     String?
+  nom_direction      String?
+  code_dg_cab        String?
+  nom_dg_cab_l       String?
+  date_arrivee       DateTime?
+  date_depart        DateTime?
+  plus_vu            DateTime?
+  ad_id              String?
+  azure_id           String?
+  actif              Boolean      @default(true)
+  niveau_hierarchie  String?      @default("agent")
+  licence            String?
+  mail               String?
+  mobile             String?
+  created_at         DateTime     @default(now())
+  updated_at         DateTime     @updatedAt
+  fonction_l         String?
+  poste_l            String?
   onboardingManagers Onboarding[] @relation("OnboardingManager")
+  onboardingAgents   Onboarding[] @relation("OnboardingAgent")
 
   @@map("REF_AGENTS")
 }
@@ -196,7 +196,7 @@ model RefHierarchie {
 
 model HierarchyLevel {
   id              Int      @id @default(autoincrement())
-  level           Int      @unique // 0=Affect, 1=Secteur, 2=Service, 3=Direction, 4=DG
+  level           Int      @unique
   name            String
   color           String?
   responsable_sql String?
@@ -207,24 +207,25 @@ model HierarchyLevel {
 }
 
 model Onboarding {
-  id                   Int              @id @default(autoincrement())
-  agent_id             Int?             // Liaison optionnelle avec REF_AGENTS
-  agent                RefAgent?        @relation("OnboardingAgent", fields: [agent_id], references: [id])
-  nom_temp             String?
-  prenom_temp          String?
-  manager_id           Int?             // Liaison avec REF_AGENTS (manager)
-  manager              RefAgent?        @relation("OnboardingManager", fields: [manager_id], references: [id])
-  statut               String           @default("a_faire") // a_faire, en_cours_demande, en_cours_realisation, termine
-  token_formulaire     String?          @unique
-  formulaire           String?          // Temporaire pour compatibilité Dashboard
-  reponses_formulaire  String?          // JSON des réponses du manager
-  date_arrivee_prevue  DateTime?
-  direction_temp       String?          // Direction (pour les agents hors-base)
-  service_temp         String?          // Service (pour les agents hors-base)
-  poste_temp           String?          // Poste (pour les agents hors-base)
-  created_at           DateTime         @default(now())
-  updated_at           DateTime         @updatedAt
-  tasks                OnboardingTask[]
+  id                  Int              @id @default(autoincrement())
+  agent_id            Int?
+  nom_temp            String?
+  prenom_temp         String?
+  manager_id          Int?
+  statut              String           @default("a_faire")
+  token_formulaire    String?          @unique
+  token_dashboard     String?          @unique
+  formulaire          String?
+  reponses_formulaire String?
+  date_arrivee_prevue DateTime?
+  created_at          DateTime         @default(now())
+  updated_at          DateTime         @updatedAt
+  direction_temp      String?
+  poste_temp          String?
+  service_temp        String?
+  manager             RefAgent?        @relation("OnboardingManager", fields: [manager_id], references: [id])
+  agent               RefAgent?        @relation("OnboardingAgent", fields: [agent_id], references: [id])
+  tasks               OnboardingTask[]
 
   @@map("ONBOARDING")
 }
@@ -234,11 +235,11 @@ model OnboardingTask {
   onboarding_id    Int
   titre            String
   done             Boolean    @default(false)
-  responsable_mail String?    // Email du responsable de la tâche
-  delay_days       Int        @default(0) // Délai relatif à la date d'arrivée
-  task_token       String?    @unique // Jeton pour l'acquittement externe
-  date_completion  DateTime?  // Date réelle de validation
-  commentaire      String?    // Commentaire d'acquittement
+  responsable_mail String?
+  delay_days       Int        @default(0)
+  task_token       String?    @unique
+  date_completion  DateTime?
+  commentaire      String?
   onboarding       Onboarding @relation(fields: [onboarding_id], references: [id], onDelete: Cascade)
 
   @@map("ONBOARDING_TASKS")
@@ -252,8 +253,23 @@ model SynchroLog {
   details    String?
   progress   Int?     @default(0)
   created_at DateTime @default(now())
+  agent_logs SyncAgentLog[]
 
   @@map("SYNCHRO_LOGS")
+}
+
+model SyncAgentLog {
+  id         Int      @id @default(autoincrement())
+  synchro_id Int
+  matricule  String
+  agent_nom  String?
+  field      String
+  old_value  String?
+  new_value  String?
+  created_at DateTime @default(now())
+  synchro    SynchroLog @relation(fields: [synchro_id], references: [id], onDelete: Cascade)
+
+  @@map("SYNC_AGENT_LOGS")
 }
 
 model Parametre {
@@ -299,25 +315,25 @@ model Audit {
 }
 
 model EmailLog {
-  id            Int       @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   to            String
   subject       String
   body          String
-  status        String    // SUCCESS | FAILURE
+  sent_at       DateTime @default(now())
+  status        String
   error         String?
-  sent_at       DateTime  @default(now())
   onboarding_id Int?
 
   @@map("EMAIL_LOGS")
 }
 
 model SmsLog {
-  id         Int      @id @default(autoincrement())
-  to         String
-  message    String
-  sent_at    DateTime @default(now())
-  status     String   // SUCCESS | FAILURE
-  error      String?
+  id            Int      @id @default(autoincrement())
+  to            String
+  message       String
+  sent_at       DateTime @default(now())
+  status        String
+  error         String?
   onboarding_id Int?
 
   @@map("SMS_LOGS")

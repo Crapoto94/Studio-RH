@@ -15,13 +15,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Requête vide ou invalide' }, { status: 400 })
     }
 
-    // Avertissement: `prisma.$queryRawUnsafe` est très dangereux en prod,
-    // mais c'est spécifiquement demandé pour l'explorateur SQL admin (DSI interne)
+    console.log('[DEBUG] SQL Explorer - Query:', query)
     const result = await prisma.$queryRawUnsafe(query)
+    console.log('[DEBUG] SQL Explorer - Success, Rows:', Array.isArray(result) ? result.length : 0)
 
     return NextResponse.json({ success: true, count: Array.isArray(result) ? result.length : 0, data: result })
-  } catch (error) {
+  } catch (error: any) {
     console.error('API SQL Query Error:', error)
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+    let errorMessage = error.message
+    if (errorMessage.includes('no such table')) {
+      errorMessage += '. Essayez d\'utiliser des guillemets doubles (ex: "REF_AGENTS") ou vérifiez le nom de la table.'
+    }
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }

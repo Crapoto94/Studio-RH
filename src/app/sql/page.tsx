@@ -274,21 +274,23 @@ export default function SqlExplorerPage() {
 
       {/* MODAL EDITION RECORD */}
       <Dialog open={!!editingRecord} onOpenChange={(open) => !open && setEditingRecord(null)}>
-          <DialogContent className="max-w-2xl p-0 bg-white border-none rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-              <DialogHeader className="p-8 bg-slate-50 border-b border-slate-100 shrink-0">
-                  <DialogTitle className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
-                      <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg">
-                        <Edit2 size={18} />
+          <DialogContent className="max-w-4xl p-0 bg-white border-none rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh] max-h-[85vh] gap-0">
+              <DialogHeader className="p-6 bg-slate-50 border-b border-slate-100 shrink-0">
+                  <DialogTitle className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg">
+                          <Edit2 size={18} />
+                        </div>
+                        Modifier l'enregistrement
                       </div>
-                      Modifier l'enregistrement
+                      <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-[0.2em]">
+                        Table: {detectTable(query)}
+                      </span>
                   </DialogTitle>
-                  <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-[0.2em] mt-2 w-fit">
-                    Table: {detectTable(query)}
-                  </span>
               </DialogHeader>
               
-              <div className="flex-1 overflow-y-auto p-8 space-y-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-white">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                     {editingRecord && Object.entries(editingRecord).map(([key, value]) => (
                         <div key={key} className="space-y-1.5 focus-within:z-10 relative">
                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">
@@ -298,28 +300,28 @@ export default function SqlExplorerPage() {
                                 type="text"
                                 value={editedData[key] === null ? '' : editedData[key]}
                                 onChange={(e) => setEditedData({ ...editedData, [key]: e.target.value })}
-                                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                                 placeholder={value === null ? 'null' : ''}
                             />
                         </div>
                     ))}
                   </div>
               </div>
-
-              <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-4 shrink-0 justify-end">
+ 
+              <div className="p-6 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row gap-3 shrink-0 justify-end items-center z-10 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
                   <button 
                       onClick={() => setEditingRecord(null)}
-                      className="px-6 py-2.5 bg-white border border-slate-200 text-slate-400 font-bold text-[10px] uppercase tracking-widest rounded-xl hover:bg-slate-100"
+                      className="w-full sm:w-auto px-6 py-2.5 bg-white border border-slate-200 text-slate-400 font-bold text-[10px] uppercase tracking-widest rounded-xl hover:bg-slate-100 transition-all"
                   >
                       Annuler
                   </button>
                   <button 
                       onClick={handleSaveEdit}
                       disabled={mutation.isPending}
-                      className="px-8 py-2.5 bg-slate-900 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:bg-slate-800 shadow-xl transition-all flex items-center gap-3"
+                      className="w-full sm:w-auto px-8 py-2.5 bg-indigo-600 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                   >
                       {mutation.isPending ? <RefreshCw size={12} className="animate-spin" /> : <Save size={14} />}
-                      Enregistrer
+                      Enregistrer les modifications
                   </button>
               </div>
           </DialogContent>

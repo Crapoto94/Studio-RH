@@ -19,7 +19,10 @@ export async function POST(req: NextRequest) {
     })
 
     const updateProgress = async (prog: number, msg: string) => {
-        await prisma.$executeRaw`UPDATE "SYNCHRO_LOGS" SET progress = ${prog}, message = ${msg} WHERE id = ${log.id}`
+        await prisma.synchroLog.update({
+            where: { id: log.id },
+            data: { progress: prog, message: msg }
+        })
     }
 
     await updateProgress(10, 'Récupération des données BRUT et Agents...')
@@ -90,7 +93,10 @@ export async function POST(req: NextRequest) {
 
     const resMsg = `[AZURE] Liaison Azure terminée. ${linksAdded} nouveaux liens, ${linksUpdated} mis à jour. Total Azure liés: ${agents.filter(a => a.azure_id).length + linksAdded}`
     
-    await prisma.$executeRaw`UPDATE "SYNCHRO_LOGS" SET progress = 100, message = ${resMsg}, statut = 'success' WHERE id = ${log.id}`
+    await prisma.synchroLog.update({
+      where: { id: log.id },
+      data: { progress: 100, message: resMsg, statut: 'success' }
+    })
 
     return NextResponse.json({ success: true, message: resMsg, stats: { added: linksAdded, updated: linksUpdated } })
   } catch (error) {

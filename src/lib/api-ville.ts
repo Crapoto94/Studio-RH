@@ -8,6 +8,7 @@ interface EmailOptions {
   template_name?: string;
   variables?: Record<string, string>;
   onboarding_id?: number;
+  attachments?: { filename: string, content: string }[];
 }
 
 /**
@@ -77,7 +78,8 @@ export async function sendEmailWithTemplate(options: EmailOptions): Promise<bool
       subject: options.subject,
       content: finalHtml,
       from_name: senderName,
-      from_email: senderEmail
+      from_email: senderEmail,
+      attachments: options.attachments || []
     };
 
     const res = await fetch(endpoint, {

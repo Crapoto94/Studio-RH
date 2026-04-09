@@ -19,7 +19,10 @@ export async function POST(req: NextRequest) {
     })
 
     const updateProgress = async (prog: number, msg: string) => {
-      await prisma.$executeRaw`UPDATE "SYNCHRO_LOGS" SET progress = ${prog}, message = ${msg} WHERE id = ${log.id}`
+      await prisma.synchroLog.update({
+        where: { id: log.id },
+        data: { progress: prog, message: msg }
+      })
     }
 
     await updateProgress(2, 'Chargement des paramètres...')
@@ -359,7 +362,10 @@ export async function POST(req: NextRequest) {
     const errDetail = stats.errors.length > 0 ? ` | Erreurs: ${stats.errors.join(' ; ')}` : ''
     const msg = `Synchronisation BRUT terminée : ${stats.rh} agents, ${stats.hier} structures, ${stats.ad} AD, ${stats.azure} Azure. ${stats.errors.length} erreur(s).${errDetail}`
     const statStr = stats.errors.length === 0 ? 'success' : 'partial'
-    await prisma.$executeRaw`UPDATE "SYNCHRO_LOGS" SET progress = 100, message = ${msg}, statut = ${statStr} WHERE id = ${log.id}`
+    await prisma.synchroLog.update({
+      where: { id: log.id },
+      data: { progress: 100, message: msg, statut: statStr }
+    })
 
     return NextResponse.json({ success: stats.errors.length === 0, stats, errors: stats.errors })
   } catch (error) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { randomUUID } from 'crypto'
 import { sendEmailWithTemplate } from '@/lib/api-ville'
+import { notifyManagerSubmission } from '@/lib/onboarding'
 
 // GET: Récupère les infos pour le formulaire manager via son token
 export async function GET(req: NextRequest) {
@@ -64,23 +65,49 @@ export async function GET(req: NextRequest) {
       console.error('[ONBOARDING-PUBLIC-ERROR] JSON Parse Lists failed', e)
     }
 
-    // LISTE DYNAMIQUE DES LOGICIELS (Basée sur le référentiel avec email)
-    if (configSoftwareRaw) {
-      try {
-        const softwareRepo = JSON.parse(configSoftwareRaw)
-        if (Array.isArray(softwareRepo)) {
-            const filtered = softwareRepo
-                .filter(s => s.email_createur && s.email_createur.trim() !== '')
-                .map(s => ({ nom: s.nom, description: s.description }))
-                .sort((a, b) => a.nom.localeCompare(b.nom))
-            
-            if (filtered.length > 0) {
-                lists.LIST_LOGICIELS_METIERS = filtered
-            }
-        }
-      } catch (e) {
-        console.error('[ONBOARDING-PUBLIC-ERROR] Software Repo parse failed', e)
+    // ── LISTE DYNAMIQUE DES LOGICIELS DE DSIHUB (MagApp) ───────────────────────
+    let dsihubError = null
+    try {
+      const dsihubParam = configs.find(c => c.cle === 'DSIHUB_API_URL')
+      const dsihubBaseUrl = dsihubParam?.valeur || 'http://10.103.130.106:3001/api'
+      const dsihubEndpoint = `${dsihubBaseUrl}/magapp/apps`
+
+      console.log(`[ONBOARDING-PUBLIC] Fetching dynamic software list from: ${dsihubEndpoint}`)
+      
+      // Désactiver la vérification TLS pour le réseau local
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+      
+      const dsihubRes = await fetch(dsihubEndpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        next: { revalidate: 300 } // Cache de 5 minutes
+      })
+
+      if (!dsihubRes.ok) {
+        throw new Error(`DSIHub a répondu avec le statut ${dsihubRes.status}`)
       }
+
+      const dsihubApps = await dsihubRes.json()
+      if (Array.isArray(dsihubApps)) {
+        const dsihubBaseUrlClean = dsihubBaseUrl.replace(/\/api\/?$/, '')
+        
+        const filtered = dsihubApps
+          .filter(app => app.email_createur && app.email_createur.trim() !== '')
+          .map(app => ({ 
+            nom: app.name, 
+            description: app.description || '',
+            icon: app.icon ? `${dsihubBaseUrlClean}${app.icon}` : null
+          }))
+          .sort((a, b) => a.nom.localeCompare(b.nom))
+        
+        lists.LIST_LOGICIELS_METIERS = filtered
+      } else {
+        throw new Error("Format de réponse DSIHub invalide (attendu: tableau)")
+      }
+    } catch (e: any) {
+      console.error('[ONBOARDING-PUBLIC-ERROR] DSIHub fetch failed:', e.message)
+      dsihubError = `Impossible de récupérer la liste des logiciels : ${e.message}`
+      lists.LIST_LOGICIELS_METIERS = [] // Liste vide en cas d'erreur
     }
 
     // LISTE DYNAMIQUE DES DIRECTIONS & SERVICES
@@ -145,7 +172,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       onboarding: { ...onboarding, agent },
       config: configForm,
-      lists: lists
+      lists: lists,
+      dsihubError: dsihubError
     })
 
   } catch (error: any) {
@@ -224,7 +252,10 @@ export async function POST(req: NextRequest) {
       try {
         const workflow = JSON.parse(configParam.valeur) 
         if (Array.isArray(workflow)) {
-          const publicUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
+          // Récupérer l'URL de base configurée
+          const appUrlParam = await prisma.parametre.findUnique({ where: { cle: 'APP_BASE_URL' } })
+          const publicUrl = appUrlParam?.valeur || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || req.nextUrl.origin
+          
           const agentName = onboarding.agent 
             ? `${onboarding.agent.prenom} ${onboarding.agent.nom}` 
             : `${onboarding.prenom_temp} ${onboarding.nom_temp}`
@@ -257,7 +288,7 @@ export async function POST(req: NextRequest) {
                 variables: {
                   AGENT_NOM: agentName,
                   TASK_NAME: taskName,
-                  VAL_URL: `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin}/onboarding/task/acknowledge?token=${taskToken}`
+                  VAL_URL: `${publicUrl}/onboarding/task/acknowledge?token=${taskToken}`
                 }
               }).catch(e => console.error(`[ONBOARDING-PUBLIC-ERROR] Mail fail to ${item.email}`, e))
             }
@@ -268,15 +299,28 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Tâches dynamiques par logiciel
-    const softwareParam = await prisma.parametre.findUnique({
-      where: { cle: 'ONBOARDING_SOFTWARE_CONFIG' }
-    })
-    
-    if (softwareParam && softwareParam.valeur && Array.isArray(responses.logiciels_metiers)) {
+    // 3. Tâches dynamiques par logiciel (via DSIHub / MagApp) ──────────────────
+    if (Array.isArray(responses.logiciels_metiers) && responses.logiciels_metiers.length > 0) {
         try {
-            const softwareRepo = JSON.parse(softwareParam.valeur) as any[]
+            const dsihubParam = await prisma.parametre.findUnique({ where: { cle: 'DSIHUB_API_URL' } })
+            const dsihubBaseUrl = dsihubParam?.valeur || 'http://10.103.130.106:3001/api'
+            const dsihubEndpoint = `${dsihubBaseUrl}/magapp/apps`
+            
+            console.log(`[ONBOARDING-PUBLIC-POST] Fetching creator emails from: ${dsihubEndpoint}`)
+
+            // Désactiver la vérification TLS pour le réseau local
+            process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+
+            const dsihubRes = await fetch(dsihubEndpoint, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            })
+
+            if (!dsihubRes.ok) throw new Error(`DSIHub inaccessible (Statut ${dsihubRes.status})`)
+            
+            const dsihubApps = await dsihubRes.json()
             const selectedSoftwareNames = responses.logiciels_metiers as string[]
+            
             const mailParam = await prisma.parametre.findUnique({ where: { cle: 'MAIL_MSG_WORKFLOW' } })
             const bodyTemplate = mailParam?.valeur || "Bonjour, une tâche a été générée : {{TASK_NAME}} pour {{AGENT_NOM}}. Cliquez ici : {{ACKNOWLEDGE_URL}}"
             const agentName = onboarding.agent 
@@ -284,10 +328,10 @@ export async function POST(req: NextRequest) {
                 : `${onboarding.prenom_temp} ${onboarding.nom_temp}`
 
             for (const swName of selectedSoftwareNames) {
-                const sw = softwareRepo.find(s => s.nom === swName)
+                const sw = Array.isArray(dsihubApps) ? dsihubApps.find((app: any) => app.name === swName) : null
                 if (sw && sw.email_createur) {
                     const taskToken = randomUUID()
-                    const taskTitle = `Création de compte logiciel : ${sw.nom}`
+                    const taskTitle = `Création de compte logiciel : ${sw.name}`
                     
                     await (prisma.onboardingTask as any).create({
                         data: {
@@ -302,19 +346,19 @@ export async function POST(req: NextRequest) {
 
                     await sendEmailWithTemplate({
                         to: sw.email_createur,
-                        subject: `📦 Accès Logiciel : ${sw.nom} (${agentName})`,
+                        subject: `📦 Accès Logiciel : ${sw.name} (${agentName})`,
                         body: bodyTemplate,
                         onboarding_id: onboarding.id,
                         variables: {
                             AGENT_NOM: agentName,
                             TASK_NAME: taskTitle,
-                            VAL_URL: `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin}/onboarding/task/acknowledge?token=${taskToken}`
+                            VAL_URL: `${publicUrl}/onboarding/task/acknowledge?token=${taskToken}`
                         }
-                    }).catch(e => console.error(`[ONBOARDING-PUBLIC-ERROR] Mail fail to ${sw.email_createur} for ${sw.nom}`, e))
+                    }).catch(e => console.error(`[ONBOARDING-PUBLIC-ERROR] Mail fail to ${sw.email_createur} for ${sw.name}`, e))
                 }
             }
-        } catch (e) {
-            console.error('[ONBOARDING-PUBLIC-ERROR] Software dynamic tasks failed', e)
+        } catch (e: any) {
+            console.error('[ONBOARDING-PUBLIC-ERROR] Software dynamic tasks (DSIHub) failed:', e.message)
         }
     }
 
@@ -326,6 +370,9 @@ export async function POST(req: NextRequest) {
         details: `Soumission manager ok pour ${onboarding.nom_temp || 'agent'}`
       }
     }).catch(() => {})
+
+    // 5. Notification de confirmation au manager
+    await notifyManagerSubmission(onboarding.id, req.nextUrl.origin).catch(e => console.error('[ONBOARDING-SUBMISSION-NOTIFY-FAILED]', e));
 
     return NextResponse.json({ success: true })
 
