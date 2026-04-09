@@ -22,5 +22,5 @@ export default withAuth(
 )
 
 export const config = {
-  matcher: ['/((?!login|api/auth|onboarding/form|api/onboarding/public|_next|favicon.ico|unauthorized).*)'],
+  matcher: ['/((?!login|api/auth|onboarding/form|onboarding/manager|api/onboarding/public|api/onboarding/search-agents|api/onboarding/manager|_next|favicon.ico|unauthorized).*)'],
 }
