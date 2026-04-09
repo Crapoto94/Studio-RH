@@ -154,7 +154,7 @@ export default function CronsPage() {
                        <span className="font-bold text-slate-800">{cron.name}</span>
                     </td>
                     <td className="py-4">
-                       <StatusBadge status={cron.type === 'rh' ? 'En activité' : 'Disponibilité'}>{cron.type.toUpperCase()}</StatusBadge>
+                       <StatusBadge status={cron.type === 'rh' ? 'success' : 'info'}>{cron.type.toUpperCase()}</StatusBadge>
                     </td>
                     <td className="py-4">
                        <span className="text-xs font-mono font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-md">
