@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { PageHeader } from '@/components/common/PageHeader'
 import { AgentsTable } from '@/components/agents/AgentsTable'
 import { useAgents } from '@/hooks/useAgents'
-import { Users, Search, Filter, Download, UserPlus, UserMinus, Calendar, Layers } from 'lucide-react'
+import { Users, Search, Filter, Download, UserPlus, UserMinus, Calendar, Layers, CloudOff } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 
 export default function AgentsPage() {
@@ -169,25 +169,31 @@ export default function AgentsPage() {
             </span>
           </button>
 
-          <button
-            onClick={() => {
-              resetFilters()
-              setFilter('multiAdOnly', 'true')
-            }}
-            className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border-2 ${
-              filters.multiAdOnly === 'true'
-                ? 'bg-amber-600 border-amber-600 text-white shadow-xl shadow-amber-100'
-                : 'bg-white border-slate-100 text-slate-500 hover:border-amber-200 hover:text-amber-600'
-            }`}
-          >
-            <Layers size={18} className={filters.multiAdOnly === 'true' ? "text-white" : "text-amber-500"} />
             Multi-comptes
             <span className={`ml-2 px-2 py-0.5 rounded-lg text-[10px] ${filters.multiAdOnly === 'true' ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-600 font-bold'}`}>
               {counts?.multiAdAgents || 0}
             </span>
           </button>
 
-          {(filters.dateArriveeMin || filters.dateArriveeMax || filters.dateDepartMin || filters.search || filters.direction || filters.multiAdOnly) && (
+          <button
+            onClick={() => {
+              resetFilters()
+              setFilter('noAzureOnly', 'true')
+            }}
+            className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border-2 ${
+              filters.noAzureOnly === 'true'
+                ? 'bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-100'
+                : 'bg-white border-slate-100 text-slate-500 hover:border-blue-200 hover:text-blue-600'
+            }`}
+          >
+            <CloudOff size={18} className={filters.noAzureOnly === 'true' ? "text-white" : "text-blue-500"} />
+            Sans Azure
+            <span className={`ml-2 px-2 py-0.5 rounded-lg text-[10px] ${filters.noAzureOnly === 'true' ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600 font-bold'}`}>
+              {counts?.noAzureAgents || 0}
+            </span>
+          </button>
+
+          {(filters.dateArriveeMin || filters.dateArriveeMax || filters.dateDepartMin || filters.search || filters.direction || filters.multiAdOnly || filters.noAzureOnly) && (
             <button 
               onClick={resetFilters}
               className="px-4 py-2 text-[10px] font-black uppercase tracking-tighter text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"

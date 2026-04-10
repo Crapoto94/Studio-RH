@@ -45,8 +45,8 @@ export async function GET(req: NextRequest) {
     const config = Object.fromEntries(params.map((p: any) => [p.cle, p.valeur]))
     const activePositions = (config['RH_POSITIONS_ACTIVES'] || '').split(',').filter(Boolean)
 
-    const [activeAgents, newAgents, recentlyLeft, allTimeLeft, futureAgents, multiAdAgents] = await Promise.all([
-      // Total agents actifs (basé sur les positions actives RH ET les filtres)
+    const [activeAgents, newAgents, recentlyLeft, allTimeLeft, futureAgents, multiAdAgents, noAzureAgents] = await Promise.all([
+      // ... (active agents block remains same)
       prisma.refAgent.count({ 
         where: { 
           ...whereBase,
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
           ]
         }
       }),
-      // Agents partis récemment (plus_vu récemment OU date_depart passée récemment)
+      // Agents partis récemment
       prisma.refAgent.count({
         where: {
           ...whereBase,
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
           ]
         }
       }),
-      // Tous les agents partis (plus_vu non vide OU date_depart passée)
+      // Tous les agents partis
       prisma.refAgent.count({
         where: {
           ...whereBase,
@@ -107,6 +107,18 @@ export async function GET(req: NextRequest) {
           ...whereBase,
           extra_ad_links: { some: {} }
         }
+      }),
+      // Sans lien Azure
+      prisma.refAgent.count({
+        where: {
+          ...whereBase,
+          azure_id: null,
+          actif: true,
+          OR: [
+            { date_depart: null, plus_vu: null },
+            { date_depart: { gt: now } }
+          ]
+        }
       })
     ])
 
@@ -116,7 +128,8 @@ export async function GET(req: NextRequest) {
       recentlyLeft,
       allTimeLeft,
       futureAgents,
-      multiAdAgents
+      multiAdAgents,
+      noAzureAgents
     })
   } catch (error) {
     console.error('API Counts Error:', error)

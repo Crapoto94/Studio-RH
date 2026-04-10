@@ -35,7 +35,8 @@ export const useAgents = (initialFilters: Record<string, any> = {
   dateArriveeMax: '',
   dateDepartMin: '',
   dateDepartMax: '',
-  multiAdOnly: ''
+  multiAdOnly: '',
+  noAzureOnly: ''
 }) => {
   const [filters, setFilters] = useState(initialFilters)
   const debouncedSearch = useDebounce(filters.search, 300)
@@ -59,6 +60,7 @@ export const useAgents = (initialFilters: Record<string, any> = {
       if (activeFilters.dateDepartMin) params.append('dateDepartMin', activeFilters.dateDepartMin)
       if (activeFilters.dateDepartMax) params.append('dateDepartMax', activeFilters.dateDepartMax)
       if (activeFilters.multiAdOnly) params.append('multiAdOnly', activeFilters.multiAdOnly)
+      if (activeFilters.noAzureOnly) params.append('noAzureOnly', activeFilters.noAzureOnly)
         
       const res = await fetch(`/api/agents?${params}`)
       if (!res.ok) throw new Error('Failed to fetch')

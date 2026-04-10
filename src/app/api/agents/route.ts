@@ -15,6 +15,7 @@ const getAgentsSchema = z.object({
   dateDepartMin: z.string().optional(),
   dateDepartMax: z.string().optional(),
   multiAdOnly: z.string().optional().transform(v => v === 'true'),
+  noAzureOnly: z.string().optional().transform(v => v === 'true'),
 })
 
 export async function GET(req: NextRequest) {
@@ -29,6 +30,12 @@ export async function GET(req: NextRequest) {
     if (query.multiAdOnly) {
       conditions.push({
         extra_ad_links: { some: {} }
+      })
+    }
+
+    if (query.noAzureOnly) {
+      conditions.push({
+        azure_id: null
       })
     }
 
