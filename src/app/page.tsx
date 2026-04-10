@@ -2,7 +2,7 @@ import { PageContainer } from '@/components/layout/PageContainer'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { PageHeader } from '@/components/common/PageHeader'
 import { LayoutDashboard, Users, UserCheck, RefreshCw, AlertCircle } from 'lucide-react'
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal } from '@/lib/db'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import { AgentAvatar } from '@/components/common/AgentAvatar'
 import { formatPrenom } from '@/lib/utils'
@@ -15,7 +15,7 @@ async function getDashboardStats() {
   const totalAgents = await prisma.refAgent.count()
   
   // Dynamic calculation based on settings
-  const params = await prisma.parametre.findMany()
+  const params = await prismaLocal.parametre.findMany()
   const config = Object.fromEntries(params.map(p => [p.cle, p.valeur]))
   const activePositions = (config['RH_POSITIONS_ACTIVES'] || '').split(',').filter(Boolean)
   const now = new Date()
@@ -42,12 +42,24 @@ async function getDashboardStats() {
   // Position distribution for Pie Chart
   let posDistribution: any[] = []
   try {
-    posDistribution = await prisma.$queryRaw`
-      SELECT position_l, COUNT(*) as count 
-      FROM REF_AGENTS 
-      GROUP BY position_l 
-      ORDER BY count DESC
-    `
+    // 2. Répartition par position (Utilisation de groupBy pour plus de robustesse)
+    const rawPosDistribution = await prisma.refAgent.groupBy({
+      by: ['position_l'],
+      _count: {
+        _all: true
+      },
+      orderBy: {
+        _count: {
+          position_l: 'desc'
+        }
+      },
+      take: 8
+    })
+
+    posDistribution = rawPosDistribution.map(p => ({
+      name: p.position_l || 'Non spécifié',
+      value: p._count._all
+    }))
   } catch (e) {
     console.error("Dashboard SQL Error (posDistribution):", e)
   }
@@ -83,8 +95,8 @@ async function getDashboardStats() {
     comptesAD,
     comptesAzure,
     posDistribution: posDistribution.map(p => ({
-      name: p.position_l || 'Non spécifié',
-      value: Number(p.count)
+      name: p.name || 'Non spécifié',
+      value: Number(p.value)
     })),
     logs,
     onboardings: onboardings || []

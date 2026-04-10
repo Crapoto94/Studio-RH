@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal } from '@/lib/db'
 
 /**
  * Proxy API pour récupérer les applications depuis DSIHub (AppDSI).
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 1. Récupération de l'URL DSIHub configurée
-    const dsihubParam = await prisma.parametre.findUnique({
+    const dsihubParam = await prismaLocal.parametre.findUnique({
       where: { cle: 'DSIHUB_API_URL' }
     })
 

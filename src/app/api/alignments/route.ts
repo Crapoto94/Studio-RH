@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prismaLocal } from '@/lib/db'
 
 export async function GET() {
   try {
-    const alignments = await prisma.alignment.findMany({
+    const alignments = await prismaLocal.alignment.findMany({
       orderBy: { name: 'asc' }
     })
     return NextResponse.json(alignments)
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Champs obligatoires manquants' }, { status: 400 })
     }
 
-    const alignment = await prisma.alignment.create({
+    const alignment = await prismaLocal.alignment.create({
       data: { name, field_rh, field_ad, is_case_sensitive: !!is_case_sensitive }
     })
     return NextResponse.json(alignment)

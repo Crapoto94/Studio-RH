@@ -3,7 +3,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal } from '@/lib/db'
 import { Client } from 'ldapts'
 
 export async function POST(req: NextRequest) {
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     await updateProgress(2, 'Chargement des paramètres...')
 
     // 2. Paramètres (clés flexibles)
-    const params = await prisma.parametre.findMany()
+    const params = await prismaLocal.parametre.findMany()
     const config = Object.fromEntries(params.map(p => [p.cle, p.valeur]))
 
     const apiUrl = config['API_ASTRE_URL'] || config['API_VILLE_URL']

@@ -1,5 +1,5 @@
 import cron, { ScheduledTask } from 'node-cron'
-import { prisma } from './db'
+import { prisma, prismaLocal } from './db'
 
 class CronManager {
   private tasks: Map<number, ScheduledTask> = new Map()
@@ -28,13 +28,25 @@ class CronManager {
     console.log(`[CRON] Executing job ${jobId} of type ${type}`)
     
     // Update last_run in DB
-    await prisma.cronJob.update({
+    await prismaLocal.cronJob.update({
       where: { id: jobId },
       data: { last_run: new Date() }
     })
 
+    // Log début d'exécution pour traçabilité (permet de voir que le cron a bien démarré)
+    await prisma.synchroLog.create({
+      data: {
+        type: type as any,
+        statut: 'info',
+        message: `Déclenchement automatique tâche #${jobId} (${type})`,
+        progress: 0
+      }
+    }).catch(e => console.error("[CRON] Failed to write start log", e))
+
     try {
-        const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+        // Pour les appels internes, on préfère localhost pour éviter les problèmes de loopback/firewall sur l'IP publique
+        const port = process.env.PORT || '3000'
+        const internalUrl = `http://localhost:${port}`
         
         let endpoint = ''
         switch(type) {
@@ -52,13 +64,13 @@ class CronManager {
             headers['Authorization'] = `Bearer ${process.env.CRON_SECRET}`
         }
 
-        const res = await fetch(`${baseUrl}${endpoint}`, { 
+        console.log(`[CRON] Internal fetch: ${internalUrl}${endpoint}`)
+        const res = await fetch(`${internalUrl}${endpoint}`, { 
             method: 'POST',
             headers
         })
 
         if (!res.ok) {
-            // Si l'appel API renvoie un code d'erreur (ex: 401, 500), on logge l'erreur dans la table de synchro
             const errorText = await res.text()
             console.error(`[CRON] Job ${jobId} failed with status ${res.status}:`, errorText.substring(0, 500))
             await prisma.synchroLog.create({
@@ -69,10 +81,17 @@ class CronManager {
                     progress: 100
                 }
             })
-            return // IMPORTANT: on arrête l'exécution ici si la réponse n'est pas OK
+            return
         }
 
-        const data = await res.json()
+        const rawBody = await res.text()
+        let data: any
+        try {
+            data = JSON.parse(rawBody)
+        } catch (jsonErr) {
+            console.error(`[CRON] Failed to parse JSON response from ${endpoint}. Body starts with: ${rawBody.substring(0, 100)}`)
+            throw new Error(`Réponse non-JSON reçue (HTML probable)`)
+        }
         console.log(`[CRON] Job ${jobId} finished with status: ${res.status}`, data)
     } catch (e) {
         console.error(`[CRON] Job ${jobId} failed:`, e)
@@ -97,7 +116,7 @@ class CronManager {
     this.tasks.clear()
 
     try {
-        const jobs = await prisma.cronJob.findMany({
+        const jobs = await prismaLocal.cronJob.findMany({
             where: { is_active: true }
         })
 

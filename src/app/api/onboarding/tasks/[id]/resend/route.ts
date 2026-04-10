@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal } from '@/lib/db'
 import { sendEmailWithTemplate } from '@/lib/api-ville'
 
 export async function POST(
@@ -35,7 +35,7 @@ export async function POST(
     const agentName = onboarding.agent ? `${onboarding.agent.prenom} ${onboarding.agent.nom}` : `${onboarding.prenom_temp} ${onboarding.nom_temp}`
     
     // Récupérer le message paramétré
-    const mailParam = await prisma.parametre.findUnique({ where: { cle: 'MAIL_MSG_WORKFLOW' } })
+    const mailParam = await prismaLocal.parametre.findUnique({ where: { cle: 'MAIL_MSG_WORKFLOW' } })
     const bodyTemplate = mailParam?.valeur || "Bonjour, une tâche logistique ({{TASK_TITRE}}) vous a été assignée pour {{AGENT_NOM}}. Merci de l'acquitter ici : {{ACK_URL}}"
 
     const publicUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'

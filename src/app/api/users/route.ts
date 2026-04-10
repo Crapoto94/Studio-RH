@@ -9,7 +9,7 @@ export async function GET() {
     if (!session || (session.user as any)?.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    const users = await prisma.appUser.findMany({
+    const users = await prismaLocal.appUser.findMany({
        select: {
           id: true,
           login: true,
@@ -44,7 +44,7 @@ export async function PATCH(req: NextRequest) {
     if (actif !== undefined) updateData.actif = actif
     if (password !== undefined) updateData.password = password
 
-    const user = await prisma.appUser.update({
+    const user = await prismaLocal.appUser.update({
       where: { id: Number(id) },
       data: updateData,
       select: { id: true, login: true, role: true, actif: true }
@@ -66,12 +66,12 @@ export async function POST(req: NextRequest) {
     const { login, nom, prenom, role, is_ad, password } = await req.json()
     if (!login) return NextResponse.json({ error: 'Login is required' }, { status: 400 })
 
-    const existing = await prisma.appUser.findUnique({ where: { login } })
+    const existing = await prismaLocal.appUser.findUnique({ where: { login } })
     if (existing) {
        return NextResponse.json({ error: 'L\'utilisateur existe déjà.' }, { status: 400 })
     }
 
-    const user = await prisma.appUser.create({
+    const user = await prismaLocal.appUser.create({
       data: {
         login,
         password: password || '',

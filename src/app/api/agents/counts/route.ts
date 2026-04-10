@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal } from '@/lib/db'
 import { z } from 'zod'
 
 const getCountsSchema = z.object({
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
     // Charger les positions actives depuis le paramétrage RH
-    const params = await prisma.parametre.findMany()
+    const params = await prismaLocal.parametre.findMany()
     const config = Object.fromEntries(params.map((p: any) => [p.cle, p.valeur]))
     const activePositions = (config['RH_POSITIONS_ACTIVES'] || '').split(',').filter(Boolean)
 

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getPostgresConnection, queryPostgres } from '@/lib/pgClient'
+import { getPostgresConnection, queryPostgres, refreshPostgresPool } from '@/lib/pgClient'
+import { prismaLocal, refreshPrismaInstance } from '@/lib/db'
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,6 +13,10 @@ export async function POST(req: NextRequest) {
 
     const { action } = await req.json()
 
+    // S'assurer que les connexions sont fraîches pour le test
+    await refreshPrismaInstance()
+    await refreshPostgresPool()
+
     if (action === 'connect') {
       const result = await queryPostgres('SELECT NOW() as db_time, current_database() as db_name, current_user as db_user');
       return NextResponse.json({ ok: true, message: 'Connexion réussie', details: result[0] })
@@ -19,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'tables') {
       // Récupérer le schéma configuré
-      const schemaParam = await prisma.parametre.findUnique({ where: { cle: 'PG_SCHEMA' } });
+      const schemaParam = await prismaLocal.parametre.findUnique({ where: { cle: 'PG_SCHEMA' } });
       const schemaName = schemaParam?.valeur || 'public';
 
       // Lister les tables du schéma configuré

@@ -1,15 +1,14 @@
-import { PrismaClient } from '@prisma/client'
-const prisma = new PrismaClient()
+import { prisma, prismaLocal } from '../lib/db'
 
 async function main() {
   console.log('--- RECALCUL DES FLAGS ACTIF ---')
   
   // 1. Récupérer les positions actives
-  const param = await prisma.parametre.findUnique({
+  const param = await prismaLocal.parametre.findUnique({
     where: { cle: 'RH_POSITIONS_ACTIVES' }
   })
   if (!param) {
-    console.error('Paramètre RH_POSITIONS_ACTIVES non trouvé')
+    console.error('Paramètre RH_POSITIONS_ACTIVES non trouvé dans la base locale SQLite')
     return
   }
   

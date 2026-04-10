@@ -42,17 +42,17 @@ export async function GET(req: NextRequest) {
     if (query.search) {
       conditions.push({
         OR: [
-          { nom: { contains: query.search } },
-          { prenom: { contains: query.search } },
-          { matricule: { contains: query.search } },
-          { poste_l: { contains: query.search } },
+          { nom: { contains: query.search, mode: 'insensitive' } },
+          { prenom: { contains: query.search, mode: 'insensitive' } },
+          { matricule: { contains: query.search, mode: 'insensitive' } },
+          { poste_l: { contains: query.search, mode: 'insensitive' } },
         ]
       })
     }
 
-    if (query.direction) conditions.push({ nom_direction: { contains: query.direction } })
-    if (query.service) conditions.push({ nom_service: { contains: query.service } })
-    if (query.statut) conditions.push({ position_l: { contains: query.statut } })
+    if (query.direction) conditions.push({ nom_direction: { contains: query.direction, mode: 'insensitive' } })
+    if (query.service) conditions.push({ nom_service: { contains: query.service, mode: 'insensitive' } })
+    if (query.statut) conditions.push({ position_l: { contains: query.statut, mode: 'insensitive' } })
     if (query.position) conditions.push({ position_l: { equals: query.position } })
 
     // Filtres de dates d'arrivée

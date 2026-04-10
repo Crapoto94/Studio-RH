@@ -39,8 +39,9 @@ export default function SynchroLogsPage() {
     fetch('/api/synchro/logs?limit=50')
       .then(res => res.json())
       .then(data => {
-        setSynchros(data)
-        if (data.length > 0) setSelectedSync(data[0].id)
+        const synchrosData = Array.isArray(data) ? data : []
+        setSynchros(synchrosData)
+        if (synchrosData.length > 0) setSelectedSync(synchrosData[0].id)
         setLoading(false)
       })
   }, [])

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prismaLocal } from '@/lib/db'
 
 export async function PATCH(
   req: NextRequest,
@@ -9,7 +9,7 @@ export async function PATCH(
     const { id: idParam } = await params
     const id = parseInt(idParam)
     const body = await req.json()
-    const alignment = await prisma.alignment.update({
+    const alignment = await prismaLocal.alignment.update({
       where: { id },
       data: body
     })
@@ -26,7 +26,7 @@ export async function DELETE(
   try {
     const { id: idParam } = await params
     const id = parseInt(idParam)
-    await prisma.alignment.delete({
+    await prismaLocal.alignment.delete({
       where: { id }
     })
     return NextResponse.json({ success: true })

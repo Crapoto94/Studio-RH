@@ -1,6 +1,6 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal } from '@/lib/db'
 import { z } from 'zod'
 
 const loginSchema = z.object({
@@ -8,7 +8,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 })
 
-import { authenticateADViaApiVille } from '@/lib/api-ville'
+import { authenticateADDirect } from '@/lib/ad-direct'
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -40,17 +40,28 @@ export const authOptions: NextAuthOptions = {
         let authenticated = false;
         let isAdUser = false;
 
-        // 1. Tenter l'authentification AD via l'API Ville
-        const isAdValid = await authenticateADViaApiVille(login, password)
+        // 1. Tenter l'authentification AD directe
+        const isAdValid = await authenticateADDirect(login, password)
         if (isAdValid) {
             authenticated = true;
             isAdUser = true;
         }
 
-        // 2. Recherche utilisateur
-        let user = await prisma.appUser.findUnique({
-          where: { login: login },
+        // 2. Recherche utilisateur (insensible à la casse car MaChevalier != machevalier)
+        let user = await prismaLocal.appUser.findFirst({
+           where: {
+             login: {
+               equals: login 
+             }
+           }
         })
+
+        if (!user) {
+            // Deuxième chance : scan de tous les utilisateurs pour comparaison insensible à la casse
+            // (Acceptable ici car le nombre d'utilisateurs AppUser est limité)
+            const allUsers = await prismaLocal.appUser.findMany()
+            user = allUsers.find(u => u.login.toLowerCase() === login.toLowerCase()) || null
+        }
 
         if (!authenticated) {
             // Fallback: Check mot de passe local si AD a échoué
@@ -60,7 +71,7 @@ export const authOptions: NextAuthOptions = {
             }
         } else if (!user) {
             // Utilisateur validé par AD mais n'existe pas en DB -> Création à la volée
-            user = await prisma.appUser.create({
+            user = await prismaLocal.appUser.create({
                 data: {
                     login: login,
                     password: '', 
@@ -79,13 +90,13 @@ export const authOptions: NextAuthOptions = {
 
         // Si l'utilisateur a été validé par AD et qu'il existait déjà, on met à jour le flag is_ad
         if (isAdUser && !user.is_ad) {
-           await prisma.appUser.update({ where: { id: user.id }, data: { is_ad: true } })
+           await prismaLocal.appUser.update({ where: { id: user.id }, data: { is_ad: true } })
         }
 
         // 3. Charger le rôle
         let permissions = '[]'
         if (user.role) {
-           const roleObj = await prisma.appRole.findUnique({ where: { name: user.role } })
+           const roleObj = await prismaLocal.appRole.findUnique({ where: { name: user.role } })
            if (roleObj) permissions = roleObj.permissions
         }
 
@@ -93,7 +104,7 @@ export const authOptions: NextAuthOptions = {
           id: String(user.id),
           name: `${user.prenom} ${user.nom}`.trim() || login,
           email: user.login,
-          role: user.role,
+          role: user.role?.trim() || 'user',
           permissions: permissions
         }
       },

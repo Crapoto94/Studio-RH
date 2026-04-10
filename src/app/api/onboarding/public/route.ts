@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal } from '@/lib/db'
 import { randomUUID } from 'crypto'
 import { sendEmailWithTemplate } from '@/lib/api-ville'
 import { notifyManagerSubmission } from '@/lib/onboarding'
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Récupérer la configuration
-    const configs = await prisma.parametre.findMany({
+    const configs = await prismaLocal.parametre.findMany({
       where: {
         cle: { in: ['ONBOARDING_FORM_CONFIG', 'ONBOARDING_LISTS_CONFIG', 'ONBOARDING_SOFTWARE_CONFIG'] }
       }
@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
     })
 
     // 2. Génération des tâches via Workflow
-    const configParam = await prisma.parametre.findUnique({
+    const configParam = await prismaLocal.parametre.findUnique({
       where: { cle: 'ONBOARDING_WORKFLOW_CONFIG' }
     })
     
@@ -253,14 +253,14 @@ export async function POST(req: NextRequest) {
         const workflow = JSON.parse(configParam.valeur) 
         if (Array.isArray(workflow)) {
           // Récupérer l'URL de base configurée
-          const appUrlParam = await prisma.parametre.findUnique({ where: { cle: 'APP_BASE_URL' } })
+          const appUrlParam = await prismaLocal.parametre.findUnique({ where: { cle: 'APP_BASE_URL' } })
           const publicUrl = appUrlParam?.valeur || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || req.nextUrl.origin
           
           const agentName = onboarding.agent 
             ? `${onboarding.agent.prenom} ${onboarding.agent.nom}` 
             : `${onboarding.prenom_temp} ${onboarding.nom_temp}`
 
-          const mailParam = await prisma.parametre.findUnique({ where: { cle: 'MAIL_MSG_WORKFLOW' } })
+          const mailParam = await prismaLocal.parametre.findUnique({ where: { cle: 'MAIL_MSG_WORKFLOW' } })
           const bodyTemplate = mailParam?.valeur || "Bonjour, une tâche a été générée : {{TASK_NAME}} pour {{AGENT_NOM}}. Cliquez ici : {{ACKNOWLEDGE_URL}}"
 
           for (const item of workflow) {
@@ -300,12 +300,12 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Tâches dynamiques par logiciel (via DSIHub / MagApp) ──────────────────
-    const appUrlParam2 = await prisma.parametre.findUnique({ where: { cle: 'APP_BASE_URL' } })
+    const appUrlParam2 = await prismaLocal.parametre.findUnique({ where: { cle: 'APP_BASE_URL' } })
     const publicUrl = appUrlParam2?.valeur || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || req.nextUrl.origin
 
     if (Array.isArray(responses.logiciels_metiers) && responses.logiciels_metiers.length > 0) {
         try {
-            const dsihubParam = await prisma.parametre.findUnique({ where: { cle: 'DSIHUB_API_URL' } })
+            const dsihubParam = await prismaLocal.parametre.findUnique({ where: { cle: 'DSIHUB_API_URL' } })
             const dsihubBaseUrl = dsihubParam?.valeur || 'http://10.103.130.106:3001/api'
             const dsihubEndpoint = `${dsihubBaseUrl}/magapp/apps`
             
@@ -324,7 +324,7 @@ export async function POST(req: NextRequest) {
             const dsihubApps = await dsihubRes.json()
             const selectedSoftwareNames = responses.logiciels_metiers as string[]
             
-            const mailParam = await prisma.parametre.findUnique({ where: { cle: 'MAIL_MSG_WORKFLOW' } })
+            const mailParam = await prismaLocal.parametre.findUnique({ where: { cle: 'MAIL_MSG_WORKFLOW' } })
             const bodyTemplate = mailParam?.valeur || "Bonjour, une tâche a été générée : {{TASK_NAME}} pour {{AGENT_NOM}}. Cliquez ici : {{ACKNOWLEDGE_URL}}"
             const agentName = onboarding.agent 
                 ? `${onboarding.agent.prenom} ${onboarding.agent.nom}` 

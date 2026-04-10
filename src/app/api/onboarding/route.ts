@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal } from '@/lib/db'
 import { randomUUID } from 'crypto'
 import { notifyManager } from '@/lib/onboarding'
 
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const mode = searchParams.get('mode')
 
-    const params = await prisma.parametre.findMany({ where: { cle: 'RH_FUTUR_DAYS' } })
+    const params = await prismaLocal.parametre.findMany({ where: { cle: 'RH_FUTUR_DAYS' } })
     const futurDays = parseInt(params[0]?.valeur || '30')
     const thresholdDate = new Date()
     thresholdDate.setDate(thresholdDate.getDate() + futurDays)

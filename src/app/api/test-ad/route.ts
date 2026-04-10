@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal } from '@/lib/db'
 import { Client } from 'ldapts'
 
 // Fetch a stored parametre
 async function getParam(cle: string) {
-  const p = await prisma.parametre.findUnique({ where: { cle } })
+  const p = await prismaLocal.parametre.findUnique({ where: { cle } })
   return p?.valeur ?? ''
 }
 

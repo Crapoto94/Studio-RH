@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import { prisma } from './db';
+import { prisma, prismaLocal } from './db';
 import { formatDate, formatPrenom } from './utils';
 
 /**
@@ -17,7 +17,7 @@ export async function generateOnboardingPDF(onboardingId: number): Promise<strin
   if (!onboarding) throw new Error('Onboarding non trouvé');
 
   // Récupérer la config du formulaire pour les labels
-  const configParam = await prisma.parametre.findUnique({ where: { cle: 'ONBOARDING_FORM_CONFIG' } });
+  const configParam = await prismaLocal.parametre.findUnique({ where: { cle: 'ONBOARDING_FORM_CONFIG' } });
   const formConfig = JSON.parse(configParam?.valeur || '[]');
   const responses = JSON.parse(onboarding.reponses_formulaire || '{}');
 

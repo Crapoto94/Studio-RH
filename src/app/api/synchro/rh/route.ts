@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal } from '@/lib/db'
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const brutRhRecords = await prisma.brutRh.findMany()
     const brutHierRecords = await prisma.brutHierarchie.findMany()
     
-    const params = await prisma.parametre.findMany()
+    const params = await prismaLocal.parametre.findMany()
     const config = Object.fromEntries(params.map(p => [p.cle, p.valeur]))
     const activePositions = (config['RH_POSITIONS_ACTIVES'] || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
 

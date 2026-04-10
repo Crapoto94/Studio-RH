@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prismaLocal } from '@/lib/db'
 import { cronManager } from '@/lib/cronManager'
 
 export async function GET() {
   try {
-    const crons = await prisma.cronJob.findMany({
+    const crons = await prismaLocal.cronJob.findMany({
       orderBy: { created_at: 'desc' },
     })
     return NextResponse.json(crons)
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
-    const cron = await prisma.cronJob.create({
+    const cron = await prismaLocal.cronJob.create({
       data: {
         name,
         type,

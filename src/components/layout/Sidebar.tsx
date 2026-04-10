@@ -29,7 +29,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const { data: session } = useSession()
 
-  const userRole = (session?.user as any)?.role || 'user'
+  const userRole = ((session?.user as any)?.role || 'user').toLowerCase().trim()
   let userPermissions: string[] = []
   try {
     userPermissions = JSON.parse((session?.user as any)?.permissions || '[]')

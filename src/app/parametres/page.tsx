@@ -469,22 +469,43 @@ function ApiTab() {
   )
 }
 
+// ─ Types source SQL ───────────────────────────────────────────────────────────
+type SqlSource = 'oracle' | 'postgres' | 'sqlite'
+
 function SqlZone() {
   const { data: params = {} } = useParametres()
   const queryClient = useQueryClient()
   const [loading, setLoading] = useState<string | null>(null)
-  const [views, setViews] = useState<string[]>([])
+  const [tables, setTables] = useState<string[]>([])
+  const [note, setNote] = useState<string>('')
+  const [source, setSource] = useState<SqlSource>('oracle')
   const [currentType, setCurrentType] = useState<'rh' | 'hierarchie' | null>(null)
 
-  const fetchViews = async (type: 'rh' | 'hierarchie') => {
+  const SOURCE_OPTIONS: { value: SqlSource; label: string; icon: string; color: string }[] = [
+    { value: 'oracle', label: 'Oracle (API Ville)', icon: '🏛️', color: 'indigo' },
+    { value: 'postgres', label: 'PostgreSQL',        icon: '🐘', color: 'blue'   },
+    { value: 'sqlite',  label: 'SQLite (local)',     icon: '📦', color: 'emerald' },
+  ]
+
+  const fetchTables = async (type: 'rh' | 'hierarchie') => {
     setLoading(type)
     setCurrentType(type)
+    setTables([])
+    setNote('')
     try {
-      const res = await fetch(`/api/sql/views?type=${type}`)
+      const url = source === 'oracle'
+        ? `/api/sql/views?type=${type}&source=oracle`
+        : `/api/sql/views?type=${type}&source=${source}`
+      const res = await fetch(url)
       const json = await res.json()
-      setViews(json.data || [])
-    } catch (e) {
-      console.error(e)
+      if (json.error) {
+        setNote(`Erreur : ${json.error}`)
+      } else {
+        setTables(json.data || [])
+        if (json.note) setNote(json.note)
+      }
+    } catch (e: any) {
+      setNote(`Erreur réseau : ${e.message}`)
     } finally {
       setLoading(null)
     }
@@ -499,16 +520,42 @@ function SqlZone() {
       body: JSON.stringify({ key, value: valeur })
     })
     queryClient.invalidateQueries({ queryKey: ['parametres'] })
-    setViews([])
+    setTables([])
     setCurrentType(null)
+    setNote('')
   }
+
+  const activeColor = SOURCE_OPTIONS.find(s => s.value === source)?.color || 'indigo'
 
   return (
     <div className="mt-8 pt-6 border-t border-slate-200">
       <h4 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2 uppercase tracking-wider">
         <Blocks size={16} className="text-indigo-500" /> Configuration des Vues SQL (Imports Brut)
       </h4>
-      
+
+      {/* Sélecteur de base de données */}
+      <div className="mb-5">
+        <p className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">1 — Choisir la base de données source</p>
+        <div className="flex flex-wrap gap-2">
+          {SOURCE_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => { setSource(opt.value); setTables([]); setNote('') }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
+                source === opt.value
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+              }`}
+            >
+              <span>{opt.icon}</span>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sélecteur de vue */}
+      <p className="text-xs text-slate-500 mb-3 font-medium uppercase tracking-wider">2 — Choisir la vue/table</p>
       <div className="flex flex-wrap gap-4 mb-4">
         <div className="flex-1 min-w-[300px] bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <label className="block text-xs font-medium text-slate-400 mb-2 uppercase">Vue pour l'import RH</label>
@@ -516,9 +563,9 @@ function SqlZone() {
             <div className="flex-1 font-mono text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-600 truncate">
                {params['SQL_VIEW_RH'] || 'Aucune vue définie'}
             </div>
-            <button onClick={() => fetchViews('rh')} disabled={loading === 'rh'}
+            <button onClick={() => fetchTables('rh')} disabled={loading === 'rh'}
               className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-medium transition-colors disabled:opacity-50">
-              {loading === 'rh' ? <Loader2 size={12} className="animate-spin" /> : 'Vue RH'}
+              {loading === 'rh' ? <Loader2 size={12} className="animate-spin" /> : 'Parcourir'}
             </button>
           </div>
         </div>
@@ -529,22 +576,32 @@ function SqlZone() {
             <div className="flex-1 font-mono text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-600 truncate">
                {params['SQL_VIEW_HIER'] || 'Aucune vue définie'}
             </div>
-            <button onClick={() => fetchViews('hierarchie')} disabled={loading === 'hierarchie'}
+            <button onClick={() => fetchTables('hierarchie')} disabled={loading === 'hierarchie'}
               className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-medium transition-colors disabled:opacity-50">
-              {loading === 'hierarchie' ? <Loader2 size={12} className="animate-spin" /> : 'Vue Hiérarchie'}
+              {loading === 'hierarchie' ? <Loader2 size={12} className="animate-spin" /> : 'Parcourir'}
             </button>
           </div>
         </div>
       </div>
 
-      {views.length > 0 && (
+      {/* Note éventuelle (mock / erreur API) */}
+      {note && (
+        <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
+          ⚠️ {note}
+        </p>
+      )}
+
+      {/* Liste des tables / vues */}
+      {tables.length > 0 && (
         <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="flex justify-between items-center mb-3">
-             <span className="text-xs font-semibold text-indigo-700 uppercase">Choisir une vue ({currentType}) :</span>
-             <button onClick={() => setViews([])} className="text-xs text-indigo-400 hover:text-indigo-600">Fermer</button>
+             <span className="text-xs font-semibold text-indigo-700 uppercase">
+               {tables.length} table{tables.length > 1 ? 's' : ''} trouvée{tables.length > 1 ? 's' : ''} ({source} / {currentType}) — Cliquer pour sélectionner :
+             </span>
+             <button onClick={() => { setTables([]); setNote('') }} className="text-xs text-indigo-400 hover:text-indigo-600">Fermer</button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-            {views.map(v => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1">
+            {tables.map(v => (
               <button key={v} onClick={() => saveView(v)}
                 className="text-left px-3 py-2 bg-white border border-indigo-200 rounded-lg text-sm hover:border-indigo-500 hover:bg-indigo-100 transition-all truncate font-mono">
                 {v}

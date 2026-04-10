@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   try {
@@ -7,8 +7,8 @@ export async function GET(req: NextRequest) {
     const ruleIds = searchParams.get('rules')?.split(',').map(id => parseInt(id)).filter(id => !isNaN(id))
     const isCaseSensitive = searchParams.get('caseSensitive') === 'true'
 
-    // Fetch rules using standard prisma client
-    const rules = await (prisma as any).alignment.findMany({
+    // Fetch rules using local prisma client (SQLite)
+    const rules = await prismaLocal.alignment.findMany({
       where: ruleIds && ruleIds.length > 0 ? { id: { in: ruleIds } } : {}
     })
 

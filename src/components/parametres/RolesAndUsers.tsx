@@ -8,9 +8,12 @@ const AVAILABLE_MENUS = [
   { path: '/', label: 'Dashboard' },
   { path: '/agents', label: 'Agents' },
   { path: '/synchro', label: 'Synchro' },
+  { path: '/synchro/logs', label: 'Logs RH' },
   { path: '/hierarchie', label: 'Hiérarchie' },
   { path: '/alignements', label: 'Alignements' },
   { path: '/onboarding', label: 'Onboarding' },
+  { path: '/crons', label: 'Automatisations' },
+  { path: '/gestion-ad', label: 'Gestion AD' },
   { path: '/parametres', label: 'Paramètres' },
   { path: '/sql', label: 'Explorateur SQL' },
 ]

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal } from '@/lib/db'
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     switch (action) {
       case 'ignore':
         for (const account of targetAccounts) {
-          await (prisma as any).adExclusion.upsert({
+          await prismaLocal.adExclusion.upsert({
             where: { sam_account: account },
             update: { reason: reason || 'Non spécifié' },
             create: { sam_account: account, reason: reason || 'Non spécifié' }
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
         break
 
       case 'remove-ignore':
-        await (prisma as any).adExclusion.deleteMany({
+        await prismaLocal.adExclusion.deleteMany({
           where: { sam_account: { in: targetAccounts } }
         })
         break

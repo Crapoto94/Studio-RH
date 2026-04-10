@@ -16,11 +16,10 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const query = getLogsSchema.parse(Object.fromEntries(searchParams))
 
-    const logs = await prisma.$queryRawUnsafe(`
-      SELECT * FROM "SYNCHRO_LOGS" 
-      ORDER BY created_at DESC 
-      LIMIT ?
-    `, query.limit)
+    const logs = await prisma.synchroLog.findMany({
+      take: query.limit,
+      orderBy: { created_at: 'desc' }
+    })
 
     return NextResponse.json(logs)
   } catch (error) {

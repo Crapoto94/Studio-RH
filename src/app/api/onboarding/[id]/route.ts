@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal } from '@/lib/db'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { randomUUID } from 'crypto'
@@ -31,7 +31,7 @@ export async function GET(
     }
 
     // Récupérer la config du formulaire pour que le front puisse mapper les labels
-    const configParam = await prisma.parametre.findUnique({ where: { cle: 'ONBOARDING_FORM_CONFIG' } })
+    const configParam = await prismaLocal.parametre.findUnique({ where: { cle: 'ONBOARDING_FORM_CONFIG' } })
     
     return NextResponse.json({
       ...onboarding,

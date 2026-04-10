@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prismaLocal } from '@/lib/db'
 import { cronManager } from '@/lib/cronManager'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -10,7 +10,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const body = await req.json()
 
-    const cron = await prisma.cronJob.update({
+    const cron = await prismaLocal.cronJob.update({
       where: { id },
       data: body
     })
@@ -31,7 +31,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const id = parseInt(rawId)
     if (isNaN(id)) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 })
 
-    await prisma.cronJob.delete({
+    await prismaLocal.cronJob.delete({
       where: { id }
     })
 

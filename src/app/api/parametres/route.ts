@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal, refreshPrismaInstance } from '@/lib/db'
+import { refreshPostgresPool } from '@/lib/pgClient'
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
-    const params = await prisma.parametre.findMany()
+    const params = await prismaLocal.parametre.findMany()
     return NextResponse.json(params)
   } catch (error) {
     console.error('API Parametres GET Error:', error)
@@ -32,7 +33,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Données invalides' }, { status: 400 })
     }
 
-    const updated = await prisma.parametre.upsert({
+    const updated = await prismaLocal.parametre.upsert({
       where: { cle: key },
       update: { valeur: String(value) },
       create: { cle: key, valeur: String(value) }
@@ -53,6 +54,12 @@ export async function PUT(req: NextRequest) {
           data: { actif: true }
         })
       }
+    }
+
+    // Refresh PostgreSQL client if any PG settings were changed
+    if (key.startsWith('PG_')) {
+      await refreshPrismaInstance()
+      await refreshPostgresPool()
     }
 
     return NextResponse.json(updated)

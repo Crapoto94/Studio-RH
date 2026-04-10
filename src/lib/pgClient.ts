@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { prisma } from './db';
+import { prismaLocal } from './db';
 
 // Cache le pool pour éviter les reconnexions inutiles
 let pool: Pool | null = null;
@@ -9,8 +9,8 @@ export async function getPostgresConnection() {
     return pool;
   }
 
-  // Récupérer les paramètres de connexion depuis SQLite
-  const params = await prisma.parametre.findMany({
+  // Récupérer les paramètres de connexion depuis SQLite (on utilise prismaLocal ici)
+  const params = await prismaLocal.parametre.findMany({
     where: {
       cle: {
         in: ['PG_HOST', 'PG_PORT', 'PG_DATABASE', 'PG_USER', 'PG_PASSWORD', 'PG_SCHEMA']
@@ -39,8 +39,17 @@ export async function getPostgresConnection() {
 }
 
 /**
+ * Force la fermeture et la réinitialisation du pool de connexion.
+ */
+export async function refreshPostgresPool() {
+  if (pool) {
+    await pool.end().catch(() => {});
+    pool = null;
+  }
+}
+
+/**
  * Fonction d'aide pour exécuter une requête brute facilement.
- * Exemple: const rows = await queryPostgres('SELECT * FROM "mon_schema"."agents" LIMIT $1', [10])
  */
 export async function queryPostgres(text: string, params?: any[]) {
   const connection = await getPostgresConnection();

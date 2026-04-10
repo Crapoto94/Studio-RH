@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db'
+import { prisma, prismaLocal } from '@/lib/db'
 import { sendEmailWithTemplate } from '@/lib/api-ville'
 import { generateOnboardingPDF } from './pdf'
 import { randomUUID } from 'crypto'
@@ -19,12 +19,12 @@ export async function notifyManager(onboarding: any, managerId: number, origin: 
     const agentLabel = onboarding.nom_temp ? `${onboarding.prenom_temp} ${onboarding.nom_temp}` : 'Nouvel arrivant'
     
     // Récupérer l'URL de base configurée
-    const appUrlParam = await prisma.parametre.findUnique({ where: { cle: 'APP_BASE_URL' } })
+    const appUrlParam = await prismaLocal.parametre.findUnique({ where: { cle: 'APP_BASE_URL' } })
     const publicUrl = appUrlParam?.valeur || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || origin
     
     const link = `${publicUrl}/onboarding/form?token=${onboarding.token_formulaire}`
 
-    const mailParam = await prisma.parametre.findUnique({ where: { cle: 'MAIL_MSG_MANAGER' } })
+    const mailParam = await prismaLocal.parametre.findUnique({ where: { cle: 'MAIL_MSG_MANAGER' } })
     const bodyTemplate = mailParam?.valeur || "Bonjour {{MANAGER_NOM}}, merci de compléter le formulaire pour {{AGENT_NOM}} : {{FORM_URL}}"
 
     return await sendEmailWithTemplate({
@@ -73,12 +73,12 @@ export async function notifyManagerSubmission(onboardingId: number, origin: stri
             : `${onboarding.prenom_temp} ${onboarding.nom_temp}`;
 
         // Récupérer l'URL de base configurée
-        const appUrlParam = await prisma.parametre.findUnique({ where: { cle: 'APP_BASE_URL' } });
+        const appUrlParam = await prismaLocal.parametre.findUnique({ where: { cle: 'APP_BASE_URL' } });
         const publicUrl = appUrlParam?.valeur || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || origin;
         
         const dashUrl = `${publicUrl}/onboarding/manager?token=${onboarding.token_dashboard}`;
 
-        const mailParam = await prisma.parametre.findUnique({ where: { cle: 'MAIL_MSG_MANAGER_SUBMISSION' } });
+        const mailParam = await prismaLocal.parametre.findUnique({ where: { cle: 'MAIL_MSG_MANAGER_SUBMISSION' } });
         const bodyTemplate = mailParam?.valeur || "Bonjour {{MANAGER_NOM}}, le formulaire pour {{AGENT_NOM}} a été bien reçu. Vous pouvez télécharger le récapitulatif ici : {{RECAP_URL}} . Suivez l'avancement ici : {{DASH_URL}}";
 
         return await sendEmailWithTemplate({
@@ -119,12 +119,12 @@ export async function notifyManagerCompletion(onboardingId: number, origin: stri
             : `${onboarding.prenom_temp} ${onboarding.nom_temp}`;
 
         // Récupérer l'URL de base configurée
-        const appUrlParam = await prisma.parametre.findUnique({ where: { cle: 'APP_BASE_URL' } });
+        const appUrlParam = await prismaLocal.parametre.findUnique({ where: { cle: 'APP_BASE_URL' } });
         const publicUrl = appUrlParam?.valeur || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || origin;
         
         const dashUrl = `${publicUrl}/onboarding/manager?token=${onboarding.token_dashboard}`;
 
-        const mailParam = await prisma.parametre.findUnique({ where: { cle: 'MAIL_MSG_MANAGER_COMPLETE' } });
+        const mailParam = await prismaLocal.parametre.findUnique({ where: { cle: 'MAIL_MSG_MANAGER_COMPLETE' } });
         const bodyTemplate = mailParam?.valeur || "Bonjour {{MANAGER_NOM}}, l'onboarding de {{AGENT_NOM}} est terminé ! Tout est prêt.";
 
         return await sendEmailWithTemplate({

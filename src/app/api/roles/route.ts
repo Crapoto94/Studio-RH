@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prismaLocal } from '@/lib/db'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
@@ -9,7 +9,7 @@ export async function GET() {
     if (!session || (session.user as any)?.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    const roles = await prisma.appRole.findMany({ orderBy: { name: 'asc' } })
+    const roles = await prismaLocal.appRole.findMany({ orderBy: { name: 'asc' } })
     return NextResponse.json(roles)
   } catch (err: any) {
     console.error(err)
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const { name, permissions } = await req.json()
     if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
 
-    const role = await prisma.appRole.create({
+    const role = await prismaLocal.appRole.create({
       data: { name, permissions: JSON.stringify(permissions || []) }
     })
     return NextResponse.json(role)
@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest) {
       // Pour protéger le nom s'il est utilisé de manière globale, mais on peut autoriser l'update des permissions
     }
     
-    const role = await prisma.appRole.update({
+    const role = await prismaLocal.appRole.update({
       where: { id: Number(id) },
       data: { name, permissions: JSON.stringify(permissions || []) }
     })
@@ -67,7 +67,7 @@ export async function DELETE(req: NextRequest) {
     const id = searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 })
 
-    await prisma.appRole.delete({ where: { id: Number(id) } })
+    await prismaLocal.appRole.delete({ where: { id: Number(id) } })
     return NextResponse.json({ success: true })
   } catch (err: any) {
     console.error(err)
