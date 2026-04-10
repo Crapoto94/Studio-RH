@@ -199,6 +199,7 @@ function UsersManager() {
   const [importRole, setImportRole] = useState('user')
   const [importedLogins, setImportedLogins] = useState<string[]>([])
   const [passwordChangeUser, setPasswordChangeUser] = useState<any>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   const existingLogins = new Set(users.map((u: any) => u.login?.toLowerCase()))
 
@@ -262,7 +263,15 @@ function UsersManager() {
           <UserPlus size={18} className="text-blue-600" />
           Ajouter un utilisateur depuis l'Active Directory
         </h3>
-        <p className="text-sm text-slate-500 mb-5">Recherche un nom ou un identifiant dans l'AD, puis importe-le avec le rôle sélectionné.</p>
+        <div className="flex justify-between items-start mb-5">
+           <p className="text-sm text-slate-500">Recherche un nom ou un identifiant dans l'AD, puis importe-le avec le rôle sélectionné.</p>
+           <button 
+             onClick={() => setShowCreateModal(true)}
+             className="px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-50 transition-all shadow-sm flex items-center gap-2"
+           >
+             <Plus size={14} /> Créer un compte local
+           </button>
+        </div>
 
         {/* Barre de recherche + rôle */}
         <div className="flex flex-wrap items-end gap-3 mb-4">
@@ -432,6 +441,156 @@ function UsersManager() {
           }}
         />
       )}
+
+      {showCreateModal && (
+        <CreateUserModal 
+          roles={roles}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={() => {
+            setShowCreateModal(false)
+            queryClient.invalidateQueries({ queryKey: ['users'] })
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function CreateUserModal({ roles, onClose, onSuccess }: { roles: any[], onClose: () => void, onSuccess: () => void }) {
+  const [login, setLogin] = useState('')
+  const [nom, setNom] = useState('')
+  const [prenom, setPrenom] = useState('')
+  const [password, setPassword] = useState('')
+  const [role, setRole] = useState('user')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSave = async () => {
+    if (!login || !password) return setError('L\'identifiant et le mot de passe sont obligatoires.')
+
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login, nom, prenom, password, role, is_ad: false })
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Erreur lors de la création')
+      }
+      onSuccess()
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+              <UserPlus size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800">Créer un compte local</h3>
+              <p className="text-xs text-slate-500">L'utilisateur s'authentifiera avec son login/password.</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-6 grid grid-cols-2 gap-4">
+          {error && (
+            <div className="col-span-2 p-3 bg-rose-50 border border-rose-100 text-rose-600 text-xs rounded-xl flex items-center gap-2">
+              <XCircle size={14} />
+              {error}
+            </div>
+          )}
+
+          <div className="col-span-2 md:col-span-1">
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Identifiant (Login)</label>
+            <input
+              type="text"
+              value={login}
+              onChange={e => setLogin(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all"
+              placeholder="ex: p.durand"
+              autoFocus
+            />
+          </div>
+
+          <div className="col-span-2 md:col-span-1">
+             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Rôle</label>
+             <select
+               value={role}
+               onChange={e => setRole(e.target.value)}
+               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all"
+             >
+               <option value="user">user (par défaut)</option>
+               {roles.map((r: any) => (
+                 <option key={r.id} value={r.name}>{r.name}</option>
+               ))}
+             </select>
+          </div>
+
+          <div className="col-span-2 md:col-span-1">
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Prénom</label>
+            <input
+              type="text"
+              value={prenom}
+              onChange={e => setPrenom(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all"
+              placeholder="Paul"
+            />
+          </div>
+
+          <div className="col-span-2 md:col-span-1">
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Nom</label>
+            <input
+              type="text"
+              value={nom}
+              onChange={e => setNom(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all"
+              placeholder="DURAND"
+            />
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Mot de passe provisoire</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all"
+              placeholder="••••••••"
+            />
+          </div>
+        </div>
+
+        <div className="p-6 bg-slate-50 flex gap-3">
+          <button 
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-100 transition-all font-display"
+          >
+            Annuler
+          </button>
+          <button 
+            onClick={handleSave}
+            disabled={loading}
+            className="flex-3 px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md shadow-indigo-200 flex items-center justify-center gap-2 font-display"
+          >
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Créer le compte
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

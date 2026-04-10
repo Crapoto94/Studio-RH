@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { login, nom, prenom, role, is_ad } = await req.json()
+    const { login, nom, prenom, role, is_ad, password } = await req.json()
     if (!login) return NextResponse.json({ error: 'Login is required' }, { status: 400 })
 
     const existing = await prisma.appUser.findUnique({ where: { login } })
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     const user = await prisma.appUser.create({
       data: {
         login,
-        password: '',
+        password: password || '',
         nom: nom || login,
         prenom: prenom || '',
         role: role || 'user',
