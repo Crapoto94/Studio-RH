@@ -92,10 +92,7 @@ export function AgentPickerModal({ open, onOpenChange, account, onSuccess }: Age
               type="text"
               placeholder="Rechercher un agent (Nom, Prénom, Matricule...)"
               value={search}
-              onChange={e => {
-                setSearch(e.target.value)
-                debouncedSearch(e.target.value)
-              }}
+              onChange={e => setSearch(e.target.value)}
               className="w-full pl-12 pr-4 py-3.5 text-sm border-2 border-slate-100 rounded-2xl focus:outline-none focus:border-indigo-500 transition-all font-medium"
               autoFocus
             />
