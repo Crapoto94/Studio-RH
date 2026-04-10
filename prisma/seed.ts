@@ -1,12 +1,14 @@
 import { PrismaClient } from '@prisma/client'
+import { PrismaClient as PrismaLocalClient } from '../src/generated/local-client'
 
 const prisma = new PrismaClient()
+const prismaLocal = new PrismaLocalClient()
 
 async function main() {
   console.log('🌱 Seeding database...')
 
-  // Create Admin User
-  const admin = await prisma.appUser.upsert({
+  // Create Admin User in local SQLite database
+  const admin = await (prismaLocal as any).appUser.upsert({
     where: { login: 'admin' },
     update: {},
     create: {
@@ -29,4 +31,5 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect()
+    await prismaLocal.$disconnect()
   })
