@@ -11,7 +11,6 @@ const globalForPrisma = globalThis as unknown as {
 export const prismaLocal =
   globalForPrisma.prismaLocal ??
   new PrismaLocalClient({
-    datasources: { db: { url: process.env.LOCAL_DATABASE_URL } },
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   })
 
@@ -67,7 +66,7 @@ async function getPrismaInstance(): Promise<PrismaClient> {
     }
 
     globalForPrisma._prismaInstance = new PrismaClient({
-      datasources: { db: { url: url || undefined } },
+      ...(url ? { datasources: { db: { url } } } : {}),
       log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
     })
   }
