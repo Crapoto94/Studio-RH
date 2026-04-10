@@ -41,7 +41,7 @@ export const useAgents = (initialFilters: Record<string, any> = {
   const debouncedSearch = useDebounce(filters.search, 300)
 
   // the query key uses the debounced search to avoid fetching on every keystroke
-  const activeFilters = { ...filters, search: debouncedSearch }
+  const activeFilters: Record<string, any> = { ...filters, search: debouncedSearch }
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['agents', activeFilters],
