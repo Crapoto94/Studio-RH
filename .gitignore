@@ -2,7 +2,7 @@ node_modules
 .next
 .env*
 # Databases (on autorise dev.db pour le déploiement auto)
- *.db (Suppression de l'exclusion globale)
+*.db
 *.db-journal
 dist
 build
