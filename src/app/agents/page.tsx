@@ -169,6 +169,18 @@ export default function AgentsPage() {
             </span>
           </button>
 
+          <button
+            onClick={() => {
+              resetFilters()
+              setFilter('multiAdOnly', 'true')
+            }}
+            className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border-2 ${
+              filters.multiAdOnly === 'true'
+                ? 'bg-amber-600 border-amber-600 text-white shadow-xl shadow-amber-100'
+                : 'bg-white border-slate-100 text-slate-500 hover:border-amber-200 hover:text-amber-600'
+            }`}
+          >
+            <Layers size={18} className={filters.multiAdOnly === 'true' ? "text-white" : "text-amber-500"} />
             Multi-comptes
             <span className={`ml-2 px-2 py-0.5 rounded-lg text-[10px] ${filters.multiAdOnly === 'true' ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-600 font-bold'}`}>
               {counts?.multiAdAgents || 0}
