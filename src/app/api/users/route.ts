@@ -35,13 +35,14 @@ export async function PATCH(req: NextRequest) {
     if (!session || (session.user as any)?.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { id, role, actif } = body
+    const { id, role, actif, password } = body
     
     if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     
     const updateData: any = {}
     if (role !== undefined) updateData.role = role
     if (actif !== undefined) updateData.actif = actif
+    if (password !== undefined) updateData.password = password
 
     const user = await prisma.appUser.update({
       where: { id: Number(id) },

@@ -82,10 +82,9 @@ export async function GET(req: NextRequest) {
     
     if (!isDepartQuery && !isSearchQuery) {
       conditions.push({
-        plus_vu: null,
         actif: true,
         OR: [
-          { date_depart: null },
+          { date_depart: null, plus_vu: null },
           { date_depart: { gt: now } }
         ]
       })

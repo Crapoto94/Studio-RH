@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { PageHeader } from '@/components/common/PageHeader'
 import { AdminGuard } from '@/components/layout/AdminGuard'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Settings, Save, Server, Shield, FileText, Blocks, Users, Wifi, Search, CheckCircle2, XCircle, Loader2, Mail, MessageSquare, History } from 'lucide-react'
+import { Settings, Save, Server, Shield, FileText, Blocks, Users, Wifi, Search, CheckCircle2, XCircle, Loader2, Mail, MessageSquare, History, Database } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -15,6 +15,7 @@ import { OnboardingSettings } from '@/components/parametres/OnboardingSettings'
 import { MailTemplatesSettings } from '@/components/parametres/MailTemplatesSettings'
 import { RolesAndUsers } from '@/components/parametres/RolesAndUsers'
 import { ImportDepartedAgents } from '@/components/parametres/ImportDepartedAgents'
+import { PostgresSettings } from '@/components/parametres/PostgresSettings'
 import { MagAppApp } from '@/types'
 import { RichTextEditor } from '@/components/common/RichTextEditor'
 
@@ -67,6 +68,7 @@ export default function ParametresPage() {
             <Tabs defaultValue="ad_azure" className="w-full h-full flex flex-col">
               <TabsList className="bg-slate-50 border-b border-slate-200 p-2 w-full justify-start overflow-x-auto rounded-t-2xl h-auto shrink-0">
                 <TabsTrigger value="ad_azure" className="gap-2"><Server size={14} /> AD &amp; Entra</TabsTrigger>
+                <TabsTrigger value="postgres" className="gap-2"><Database size={14} /> Base PostgreSQL</TabsTrigger>
                 <TabsTrigger value="api" className="gap-2"><Blocks size={14} /> API Ville Ivry</TabsTrigger>
                 <TabsTrigger value="hierarchie" className="gap-2"><FileText size={14} /> Hiérarchies</TabsTrigger>
                 <TabsTrigger value="rh" className="gap-2"><Shield size={14} /> Règles RH</TabsTrigger>
@@ -79,6 +81,10 @@ export default function ParametresPage() {
                 <TabsContent value="ad_azure" className="m-0 space-y-8 p-8 w-full max-w-none animate-in fade-in duration-500">
                   <AdSection />
                   <EntraSection />
+                </TabsContent>
+                
+                <TabsContent value="postgres" className="m-0 p-8 w-full max-w-none animate-in fade-in duration-500">
+                  <PostgresSettings />
                 </TabsContent>
 
                 <TabsContent value="api" className="m-0 space-y-6 p-8 w-full max-w-none animate-in fade-in duration-500">

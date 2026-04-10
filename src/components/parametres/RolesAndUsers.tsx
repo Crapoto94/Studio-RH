@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Plus, Save, Trash2, Shield, Users as UsersIcon, Edit2, X, Search, UserPlus, CheckCircle2 } from 'lucide-react'
+import { Loader2, Plus, Save, Trash2, Shield, Users as UsersIcon, Edit2, X, Search, UserPlus, CheckCircle2, Lock, XCircle } from 'lucide-react'
 
 const AVAILABLE_MENUS = [
   { path: '/', label: 'Dashboard' },
@@ -198,6 +198,7 @@ function UsersManager() {
   const [adMsg, setAdMsg] = useState('')
   const [importRole, setImportRole] = useState('user')
   const [importedLogins, setImportedLogins] = useState<string[]>([])
+  const [passwordChangeUser, setPasswordChangeUser] = useState<any>(null)
 
   const existingLogins = new Set(users.map((u: any) => u.login?.toLowerCase()))
 
@@ -398,15 +399,133 @@ function UsersManager() {
                       >
                         <option value="user">Aucun (user)</option>
                         {roles.map((r: any) => (
-                          <option key={r.id} value={r.name}>{r.name}</option>
+                         <option key={r.id} value={r.name}>{r.name}</option>
                         ))}
                       </select>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {!u.is_ad && (
+                       <button
+                         onClick={() => setPasswordChangeUser(u)}
+                         className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                         title="Changer le mot de passe"
+                       >
+                         <Lock size={16} />
+                       </button>
                     )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {passwordChangeUser && (
+        <ChangePasswordModal 
+          user={passwordChangeUser} 
+          onClose={() => setPasswordChangeUser(null)} 
+          onSuccess={() => {
+            setPasswordChangeUser(null)
+            queryClient.invalidateQueries({ queryKey: ['users'] })
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function ChangePasswordModal({ user, onClose, onSuccess }: { user: any, onClose: () => void, onSuccess: () => void }) {
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSave = async () => {
+    if (!password) return setError('Le mot de passe ne peut pas être vide.')
+    if (password !== confirm) return setError('Les mots de passe ne correspondent pas.')
+
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id, password })
+      })
+      if (!res.ok) throw new Error('Erreur lors du changement de mot de passe')
+      onSuccess()
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+              <Lock size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800">Modifier le mot de passe</h3>
+              <p className="text-xs text-slate-500">Utilisateur : {user.login}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {error && (
+            <div className="p-3 bg-rose-50 border border-rose-100 text-rose-600 text-xs rounded-xl flex items-center gap-2">
+              <XCircle size={14} />
+              {error}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Nouveau mot de passe</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Confirmer le mot de passe</label>
+            <input
+              type="password"
+              value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all"
+            />
+          </div>
+        </div>
+
+        <div className="p-6 bg-slate-50 flex gap-3">
+          <button 
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-100 transition-all font-display"
+          >
+            Annuler
+          </button>
+          <button 
+            onClick={handleSave}
+            disabled={loading}
+            className="flex-3 px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md shadow-indigo-200 flex items-center justify-center gap-2 font-display"
+          >
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Appliquer le changement
+          </button>
         </div>
       </div>
     </div>

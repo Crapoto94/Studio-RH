@@ -47,8 +47,12 @@ export function getAgentStatut(agent: Agent): 'actif' | 'inactif' | 'parti' | 'f
   const plusVu = parseDate(agent.plus_vu)
 
   if (arrivee && arrivee > now) return 'futur'
-  if (plusVu) return 'parti'
-  if (depart && depart <= todayMidnight) return 'parti'
+  if (depart) {
+    if (depart <= todayMidnight) return 'parti'
+  } else if (plusVu) {
+    return 'parti'
+  }
+  
   if (agent.actif === false) return 'inactif'
   
   return 'actif'

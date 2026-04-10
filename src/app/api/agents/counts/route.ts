@@ -50,9 +50,8 @@ export async function GET(req: NextRequest) {
       prisma.refAgent.count({ 
         where: { 
           ...whereBase,
-          plus_vu: null,
           OR: [
-            { date_depart: null },
+            { date_depart: null, plus_vu: null },
             { date_depart: { gt: now } }
           ],
           ...(activePositions.length > 0 ? { position_l: { in: activePositions } } : {})
@@ -63,8 +62,11 @@ export async function GET(req: NextRequest) {
         where: {
           ...whereBase,
           date_arrivee: { gte: thirtyDaysAgo, lte: now },
-          plus_vu: null,
-          actif: true
+          actif: true,
+          OR: [
+            { date_depart: null, plus_vu: null },
+            { date_depart: { gt: now } }
+          ]
         }
       }),
       // Agents partis récemment (plus_vu récemment OU date_depart passée récemment)
@@ -72,7 +74,7 @@ export async function GET(req: NextRequest) {
         where: {
           ...whereBase,
           OR: [
-            { plus_vu: { gte: thirtyDaysAgo } },
+            { date_depart: null, plus_vu: { gte: thirtyDaysAgo } },
             { date_depart: { gte: thirtyDaysAgo, lte: now } }
           ]
         }
@@ -82,7 +84,7 @@ export async function GET(req: NextRequest) {
         where: {
           ...whereBase,
           OR: [
-            { plus_vu: { not: null } },
+            { date_depart: null, plus_vu: { not: null } },
             { date_depart: { lte: now } }
           ]
         }
@@ -92,8 +94,11 @@ export async function GET(req: NextRequest) {
         where: {
           ...whereBase,
           date_arrivee: { gt: now },
-          plus_vu: null,
-          actif: true
+          actif: true,
+          OR: [
+            { date_depart: null, plus_vu: null },
+            { date_depart: { gt: now } }
+          ]
         }
       }),
       // Multi-comptes AD
