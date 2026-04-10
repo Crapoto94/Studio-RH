@@ -11,6 +11,7 @@ const globalForPrisma = globalThis as unknown as {
 export const prismaLocal =
   globalForPrisma.prismaLocal ??
   new PrismaLocalClient({
+    datasources: { db: { url: process.env.LOCAL_DATABASE_URL } },
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   })
 
@@ -34,12 +35,17 @@ async function getDynamicPostgresUrl(): Promise<string | null> {
       return process.env.POSTGRES_URL || null
     }
 
-    const host = config.PG_HOST
-    const port = config.PG_PORT || '5432'
-    const user = config.PG_USER || 'postgres'
-    const pass = config.PG_PASSWORD || ''
-    const db = config.PG_DATABASE
-    const schema = config.PG_SCHEMA || 'public'
+    const host = config.PG_HOST || process.env.POSTGRES_HOST
+    const port = config.PG_PORT || process.env.POSTGRES_PORT || '5432'
+    const user = config.PG_USER || process.env.POSTGRES_USER || 'postgres'
+    const pass = config.PG_PASSWORD || process.env.POSTGRES_PASSWORD || ''
+    const db = config.PG_DATABASE || process.env.POSTGRES_DATABASE
+    const schema = config.PG_SCHEMA || process.env.POSTGRES_SCHEMA || 'public'
+
+    if (!host || !db) {
+       // Fallback sur l'URL complète si définie
+       return process.env.POSTGRES_URL || null
+    }
 
     return `postgresql://${user}:${pass}@${host}:${port}/${db}?schema=${schema}`
   } catch (e) {
@@ -96,16 +102,26 @@ export const prisma = new Proxy({} as PrismaClient, {
     return new Proxy({}, {
       get(modelTarget, method: string) {
         return async (...args: any[]) => {
-          const instance = await getPrismaInstance()
-          const model = (instance as any)[prop]
-          if (!model) throw new Error(`Modèle '${prop}' non trouvé dans Prisma (Postgres)`)
-          
-          // Vérification si la méthode existe sur le modèle
-          if (typeof model[method] !== 'function') {
-             throw new Error(`Méthode '${method}' non trouvée sur le modèle '${prop}'`)
+          try {
+            const instance = await getPrismaInstance()
+            const model = (instance as any)[prop]
+            if (!model) {
+              console.warn(`[PRISMA-PROXY] Modèle '${prop}' non trouvé. Vérifiez la connexion Postgres.`)
+              return method === 'count' ? 0 : []
+            }
+            
+            if (typeof model[method] !== 'function') {
+               throw new Error(`Méthode '${method}' non trouvée sur le modèle '${prop}'`)
+            }
+            
+            return await model[method](...args)
+          } catch (error) {
+            console.error(`[PRISMA-PROXY] Erreur sur ${prop}.${method}:`, error)
+            // Retourne des valeurs par défaut pour éviter de crasher le rendu SSR
+            if (method === 'count') return 0
+            if (method === 'findMany') return []
+            throw error // Relance pour les autres méthodes critiques
           }
-          
-          return model[method](...args)
         }
       }
     })
