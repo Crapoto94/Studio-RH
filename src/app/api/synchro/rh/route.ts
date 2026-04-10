@@ -101,7 +101,6 @@ export async function POST(req: NextRequest) {
           date_arrivee: brut.DATE_ARRIVEE ? new Date(brut.DATE_ARRIVEE) : null,
           date_depart: brut.DATE_DEPART ? new Date(brut.DATE_DEPART) : null,
           plus_vu: null,
-          mail: email,
           mobile: mobile,
           actif: isActif,
           // note: ad_id and azure_id are NOT in the update data to preserve manual links
@@ -113,7 +112,7 @@ export async function POST(req: NextRequest) {
             'nom', 'prenom', 'position_l', 'code_affect', 'nom_affect_l', 
             'code_service', 'nom_service', 'code_direction', 'nom_direction', 
             'code_dg_cab', 'nom_dg_cab_l', 'fonction_l', 'poste_l', 
-            'mail', 'mobile', 'actif'
+            'mobile', 'actif'
           ]
 
           for (const field of fieldsToMonitor) {

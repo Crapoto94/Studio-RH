@@ -60,6 +60,7 @@ class CronManager {
         if (!res.ok) {
             // Si l'appel API renvoie un code d'erreur (ex: 401, 500), on logge l'erreur dans la table de synchro
             const errorText = await res.text()
+            console.error(`[CRON] Job ${jobId} failed with status ${res.status}:`, errorText.substring(0, 500))
             await prisma.synchroLog.create({
                 data: {
                     type: type as any,
@@ -68,6 +69,7 @@ class CronManager {
                     progress: 100
                 }
             })
+            return // IMPORTANT: on arrête l'exécution ici si la réponse n'est pas OK
         }
 
         const data = await res.json()
