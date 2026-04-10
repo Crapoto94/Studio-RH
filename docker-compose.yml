@@ -11,7 +11,7 @@ services:
       - .env
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=file:/app/prisma/dev.db
+      - LOCAL_DATABASE_URL=file:/app/prisma/dev.db
     volumes:
       - rhstudio_data:/app/prisma
     healthcheck:
