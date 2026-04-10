@@ -38,7 +38,7 @@ function parseCSVLine(line: string) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
 
     await prisma.audit.create({
       data: {
-        user_id: parseInt(session.user.id),
+        user_id: parseInt((session.user as any).id) || undefined,
         action: 'import_departed_agents',
         target: file.name,
         details: JSON.stringify({ count: processedCount })
