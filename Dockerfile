@@ -7,8 +7,9 @@ COPY package*.json ./
 RUN npm ci --legacy-peer-deps
 
 COPY . .
-# We need to generate prisma client
+# We need to generate BOTH prisma clients
 RUN npx prisma generate
+RUN npx prisma generate --schema=prisma/local.prisma
 RUN npm run build
 
 FROM node:20-alpine AS runner
@@ -23,6 +24,8 @@ COPY --from=builder /app/next.config.mjs ./
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+# Copy generated local prisma client (standalone needs it if used in server-side components)
+COPY --from=builder /app/src/generated ./src/generated
 # Copy prisma and scripts directories for maintenance
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
