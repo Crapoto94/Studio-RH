@@ -22,6 +22,7 @@ export interface Agent {
   plus_vu?: string | Date | null
   ad_id?: string | null
   azure_id?: string | null
+  ad_count?: number
   actif?: boolean
   niveau_hierarchie?: NiveauHierarchie | null
   licence?: string | null

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { notifyManagerCompletion } from '@/lib/onboarding'
 
 export async function PATCH(
   req: NextRequest,
@@ -15,7 +16,7 @@ export async function PATCH(
     const id = parseInt(idParam)
     const body = await req.json()
 
-    // On peut mettre à jour soit le statut (done), soit le commentaire, soit les deux
+    // 1. Mettre à jour la tâche
     const updated = await prisma.onboardingTask.update({
       where: { id },
       data: {
@@ -25,23 +26,40 @@ export async function PATCH(
       }
     })
 
-    // Vérifier si toutes les tâches sont terminées pour cet onboarding
+    // 2. Récupérer l'état actuel de l'onboarding pour détecter la transition
+    const onboarding = await (prisma.onboarding as any).findUnique({
+      where: { id: updated.onboarding_id },
+      select: { statut: true }
+    })
+
+    // 3. Vérifier si toutes les tâches sont terminées pour cet onboarding
     const allTasks = await prisma.onboardingTask.findMany({
       where: { onboarding_id: updated.onboarding_id }
     })
     
     const allDone = allTasks.every(t => t.done)
+    
     if (allDone) {
-      await (prisma.onboarding as any).update({
-        where: { id: updated.onboarding_id },
-        data: { statut: 'termine' }
-      })
+      if (onboarding?.statut !== 'termine') {
+        await (prisma.onboarding as any).update({
+          where: { id: updated.onboarding_id },
+          data: { statut: 'termine' }
+        })
+
+        // Déclenchement du mail de fin d'onboarding au manager
+        const origin = req.nextUrl.origin
+        await notifyManagerCompletion(updated.onboarding_id, origin).catch(e => 
+          console.error('[ONBOARDING-COMPLETION-NOTIFY-FAILED]', e)
+        )
+      }
     } else {
       // Si on décoche une tâche alors que c'était terminé, on repasse en cours
-      await (prisma.onboarding as any).update({
-        where: { id: updated.onboarding_id },
-        data: { statut: 'en_cours_realisation' }
-      })
+      if (onboarding?.statut === 'termine') {
+        await (prisma.onboarding as any).update({
+          where: { id: updated.onboarding_id },
+          data: { statut: 'en_cours_realisation' }
+        })
+      }
     }
 
     return NextResponse.json(updated)

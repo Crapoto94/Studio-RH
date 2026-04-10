@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { OnboardingSettings } from '@/components/parametres/OnboardingSettings'
 import { MailTemplatesSettings } from '@/components/parametres/MailTemplatesSettings'
 import { RolesAndUsers } from '@/components/parametres/RolesAndUsers'
+import { ImportDepartedAgents } from '@/components/parametres/ImportDepartedAgents'
 import { MagAppApp } from '@/types'
 import { RichTextEditor } from '@/components/common/RichTextEditor'
 
@@ -101,6 +102,8 @@ export default function ParametresPage() {
                   </SettingSection>
 
                   <PositionsActivesSection />
+                  
+                  <ImportDepartedAgents />
                 </TabsContent>
                 
                 <TabsContent value="onboarding" className="m-0 w-full p-8 animate-in fade-in duration-500">

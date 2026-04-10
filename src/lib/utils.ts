@@ -39,11 +39,16 @@ export function parseDate(date: any): Date | null {
 // Statut d'un agent
 export function getAgentStatut(agent: Agent): 'actif' | 'inactif' | 'parti' | 'futur' {
   const now = new Date()
+  const todayMidnight = new Date()
+  todayMidnight.setHours(0, 0, 0, 0)
+
   const arrivee = parseDate(agent.date_arrivee)
   const depart = parseDate(agent.date_depart)
+  const plusVu = parseDate(agent.plus_vu)
 
   if (arrivee && arrivee > now) return 'futur'
-  if (depart && depart < now) return 'parti'
+  if (plusVu) return 'parti'
+  if (depart && depart <= todayMidnight) return 'parti'
   if (agent.actif === false) return 'inactif'
   
   return 'actif'

@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { PageHeader } from '@/components/common/PageHeader'
 import { AgentsTable } from '@/components/agents/AgentsTable'
 import { useAgents } from '@/hooks/useAgents'
-import { Users, Search, Filter, Download, UserPlus, UserMinus, Calendar } from 'lucide-react'
+import { Users, Search, Filter, Download, UserPlus, UserMinus, Calendar, Layers } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 
 export default function AgentsPage() {
@@ -26,10 +26,24 @@ export default function AgentsPage() {
   const [showFilters, setShowFilters] = useState(false)
 
   const { data: counts } = useQuery({
-    queryKey: ['agent-counts'],
+    queryKey: ['agent-counts', filters],
     queryFn: async () => {
-      const res = await fetch('/api/agents/counts')
+      const params = new URLSearchParams()
+      if (filters.search) params.append('search', filters.search)
+      if (filters.direction) params.append('direction', filters.direction)
+      if (filters.service) params.append('service', filters.service)
+      if (filters.position) params.append('position', filters.position)
+      
+      const res = await fetch(`/api/agents/counts?${params.toString()}`)
       return res.json()
+    }
+  })
+
+  const { data: positions = [] } = useQuery({
+    queryKey: ['agent-positions'],
+    queryFn: async () => {
+      const res = await fetch('/api/agents/positions')
+      return res.json() as Promise<string[]>
     }
   })
 
@@ -114,6 +128,27 @@ export default function AgentsPage() {
 
           <button
             onClick={() => {
+              const today = new Date()
+              setFilter('dateArriveeMin', '')
+              setFilter('dateArriveeMax', '')
+              setFilter('dateDepartMin', '') // On vide le min pour avoir TOUT le passé
+              setFilter('dateDepartMax', today.toISOString().split('T')[0])
+            }}
+            className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border-2 ${
+              !filters.dateDepartMin && filters.dateDepartMax
+                ? 'bg-rose-600 border-rose-600 text-white shadow-xl shadow-rose-100'
+                : 'bg-white border-slate-100 text-slate-500 hover:border-rose-200 hover:text-rose-600'
+            }`}
+          >
+            <UserMinus size={18} className={!filters.dateDepartMin && filters.dateDepartMax ? "text-white" : "text-rose-500"} />
+             Partis (Tous)
+             <span className={`ml-2 px-2 py-0.5 rounded-lg text-[10px] ${!filters.dateDepartMin && filters.dateDepartMax ? 'bg-white/20 text-white' : 'bg-rose-50 text-rose-600 font-bold'}`}>
+               {counts?.allTimeLeft || 0}
+             </span>
+           </button>
+
+          <button
+            onClick={() => {
               const tomorrow = new Date()
               tomorrow.setDate(tomorrow.getDate() + 1)
               setFilter('dateDepartMin', '')
@@ -134,7 +169,25 @@ export default function AgentsPage() {
             </span>
           </button>
 
-          {(filters.dateArriveeMin || filters.dateArriveeMax || filters.dateDepartMin || filters.search || filters.direction) && (
+          <button
+            onClick={() => {
+              resetFilters()
+              setFilter('multiAdOnly', 'true')
+            }}
+            className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border-2 ${
+              filters.multiAdOnly === 'true'
+                ? 'bg-amber-600 border-amber-600 text-white shadow-xl shadow-amber-100'
+                : 'bg-white border-slate-100 text-slate-500 hover:border-amber-200 hover:text-amber-600'
+            }`}
+          >
+            <Layers size={18} className={filters.multiAdOnly === 'true' ? "text-white" : "text-amber-500"} />
+            Multi-comptes
+            <span className={`ml-2 px-2 py-0.5 rounded-lg text-[10px] ${filters.multiAdOnly === 'true' ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-600 font-bold'}`}>
+              {counts?.multiAdAgents || 0}
+            </span>
+          </button>
+
+          {(filters.dateArriveeMin || filters.dateArriveeMax || filters.dateDepartMin || filters.search || filters.direction || filters.multiAdOnly) && (
             <button 
               onClick={resetFilters}
               className="px-4 py-2 text-[10px] font-black uppercase tracking-tighter text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
@@ -193,6 +246,19 @@ export default function AgentsPage() {
                   <option value="Détachement">Détachement</option>
                   <option value="Congé">Congé</option>
                   <option value="Disponibilité">Disponibilité</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Position</label>
+                <select 
+                  className="w-full text-xs border border-slate-200 rounded-md px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={filters.position}
+                  onChange={(e) => setFilter('position', e.target.value)}
+                >
+                  <option value="">Toutes les positions</option>
+                  {positions.map(pos => (
+                    <option key={pos} value={pos}>{pos}</option>
+                  ))}
                 </select>
               </div>
             </div>

@@ -37,36 +37,20 @@ export async function POST(req: NextRequest) {
     // 2. Fetch all BRUT data and Config
     const brutRhRecords = await prisma.brutRh.findMany()
     const brutHierRecords = await prisma.brutHierarchie.findMany()
-    const brutAdRecords = await prisma.brutAd.findMany()
-    const brutAzureRecords = await prisma.brutAzure.findMany()
     
     const params = await prisma.parametre.findMany()
     const config = Object.fromEntries(params.map(p => [p.cle, p.valeur]))
-    const activePositions = (config['RH_POSITIONS_ACTIVES'] || '').split(',').filter(Boolean)
+    const activePositions = (config['RH_POSITIONS_ACTIVES'] || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
 
     const stats = { agents: { updated: 0, created: 0, left: 0 }, hier: { updated: 0, created: 0 }, matched_ad: 0, matched_azure: 0 }
     const modifiedAgentsSet = new Set<string>()
 
-    // Helper for fuzzy matching names
-    const normalize = (s: string) => s?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim() || ""
-
-    await updateProgress(10, 'Indexation des données pour le rapprochement...')
+    await updateProgress(10, 'Indexation des données...')
 
     // Fetch existing agents to determine creations, updates, and departures
     const existingRefAgents = await prisma.refAgent.findMany()
     const refAgentMap = new Map(existingRefAgents.map(a => [a.matricule, a]))
     const currentBatchMatricules = new Set<string>()
-
-    // Optimization: Index AD and Azure in Maps for O(1) lookup
-    const adByMat = new Map(brutAdRecords.filter(ad => ad.matricule_ad).map(ad => [String(ad.matricule_ad), ad]))
-    const adByName = new Map(brutAdRecords.map(ad => [`${normalize(ad.surname || '')}|${normalize(ad.given_name || '')}`, ad]))
-
-    const azureByEmail = new Map()
-    brutAzureRecords.forEach(az => {
-      if (az.mail) azureByEmail.set(az.mail.toLowerCase(), az)
-      if (az.user_principal_name) azureByEmail.set(az.user_principal_name.toLowerCase(), az)
-    })
-    const azureByName = new Map(brutAzureRecords.map(az => [`${normalize(az.surname || '')}|${normalize(az.given_name || '')}`, az]))
 
     await updateProgress(15, `Traitement de ${brutRhRecords.length} agents...`)
 
@@ -78,59 +62,13 @@ export async function POST(req: NextRequest) {
       currentBatchMatricules.add(matStrRaw)
       count++
 
-      const nameKey = `${normalize(brut.NOM || "")}|${normalize(brut.PRENOM || "")}`
+      // Les liens AD/Azure sont gérés manuellement. On récupère uniquement Mail/Mobile depuis HR (Ciril)
+      const email = brut.EMAIL_PRO || null
+      const mobile = brut.MOBILE_PRO || brut.TELEPHONE_PRO || null
 
-      // matching AD
-      let adId: string | null = null
-      let email: string | null = null
-      let mobile: string | null = null
-      
-      const matNumeric = matStrRaw.replace(/^0+/, '')
-      
-      let mappedAd: any = adByMat.get(matStrRaw) || adByMat.get(matNumeric) || adByName.get(nameKey)
-
-      if (mappedAd) {
-          adId = mappedAd.sam_account
-          email = mappedAd.mail || null
-          mobile = mappedAd.mobile || mappedAd.telephone || null
-          stats.matched_ad++
-      }
-
-      // Fallback: If no AD mail, use BrutRh mail (Ciril)
-      if (!email && brut.EMAIL_PRO) {
-          email = brut.EMAIL_PRO
-      }
-      if (!mobile && (brut.MOBILE_PRO || brut.TELEPHONE_PRO)) {
-          mobile = brut.MOBILE_PRO || brut.TELEPHONE_PRO
-      }
-
-      // Matching Azure
-      let azureId: string | null = null
-      let license: string | null = null
-      
-      // 1. Priorité Email via AD
-      if (mappedAd && mappedAd.mail) {
-          const adMail = String(mappedAd.mail).toLowerCase()
-          const matchedAz: any = azureByEmail.get(adMail)
-          if (matchedAz) {
-              azureId = matchedAz.user_principal_name
-              license = matchedAz.licenses
-              stats.matched_azure++
-          }
-      }
-
-      // 2. Fallback Nom/Prénom
-      if (!azureId) {
-          const matchedAz: any = azureByName.get(nameKey)
-          if (matchedAz) {
-              azureId = matchedAz.user_principal_name
-              license = matchedAz.licenses
-              stats.matched_azure++
-          }
-      }
-
-      // Active status based on POSITION_L
-      const isActif = activePositions.length === 0 || activePositions.includes(brut.POSITION_L || '')
+      // Active status based on POSITION_L (Case insensitive and trimmed)
+      const currentPos = (brut.POSITION_L || '').trim().toLowerCase()
+      const isActif = activePositions.length === 0 || activePositions.includes(currentPos)
 
       const existingAgent = refAgentMap.get(matStrRaw) as any
 
@@ -163,12 +101,10 @@ export async function POST(req: NextRequest) {
           date_arrivee: brut.DATE_ARRIVEE ? new Date(brut.DATE_ARRIVEE) : null,
           date_depart: brut.DATE_DEPART ? new Date(brut.DATE_DEPART) : null,
           plus_vu: null,
-          ad_id: adId,
-          azure_id: azureId,
           mail: email,
           mobile: mobile,
           actif: isActif,
-          licence: license,
+          // note: ad_id and azure_id are NOT in the update data to preserve manual links
         }
         
         // DÉTECTION DES CHANGEMENTS (LOGS)
@@ -177,7 +113,7 @@ export async function POST(req: NextRequest) {
             'nom', 'prenom', 'position_l', 'code_affect', 'nom_affect_l', 
             'code_service', 'nom_service', 'code_direction', 'nom_direction', 
             'code_dg_cab', 'nom_dg_cab_l', 'fonction_l', 'poste_l', 
-            'ad_id', 'azure_id', 'mail', 'mobile', 'actif'
+            'mail', 'mobile', 'actif'
           ]
 
           for (const field of fieldsToMonitor) {

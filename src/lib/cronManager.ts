@@ -47,7 +47,7 @@ class CronManager {
                return
         }
 
-        const headers: Record<string, string> = { method: 'POST' } as any
+        const headers: Record<string, string> = {}
         if (process.env.CRON_SECRET) {
             headers['Authorization'] = `Bearer ${process.env.CRON_SECRET}`
         }
@@ -56,10 +56,33 @@ class CronManager {
             method: 'POST',
             headers
         })
+
+        if (!res.ok) {
+            // Si l'appel API renvoie un code d'erreur (ex: 401, 500), on logge l'erreur dans la table de synchro
+            const errorText = await res.text()
+            await prisma.synchroLog.create({
+                data: {
+                    type: type as any,
+                    statut: 'error',
+                    message: `Échec automatique [${res.status}] : ${errorText.substring(0, 100)}`,
+                    progress: 100
+                }
+            })
+        }
+
         const data = await res.json()
         console.log(`[CRON] Job ${jobId} finished with status: ${res.status}`, data)
     } catch (e) {
         console.error(`[CRON] Job ${jobId} failed:`, e)
+        // Log d'erreur réseau / crash direct
+        await prisma.synchroLog.create({
+            data: {
+                type: type as any,
+                statut: 'error',
+                message: `Erreur critique automate : ${(e as Error).message}`,
+                progress: 100
+            }
+        })
     }
   }
 

@@ -6,7 +6,7 @@ import { useSession, signOut } from 'next-auth/react'
 import {
   LayoutDashboard, Users, RefreshCw, GitBranch,
   AlignLeft, UserCheck, Settings, Database,
-  ChevronLeft, ChevronRight, LogOut, History, Clock
+  ChevronLeft, ChevronRight, LogOut, History, Clock, ShieldCheck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +19,7 @@ const navItems = [
   { href: '/alignements',  label: 'Alignements',    icon: AlignLeft },
   { href: '/onboarding',   label: 'Onboarding',     icon: UserCheck },
   { href: '/crons',        label: 'Automatisations',icon: Clock },
+  { href: '/gestion-ad',   label: 'Gestion AD',     icon: ShieldCheck },
   { href: '/parametres',   label: 'Paramètres',     icon: Settings },
   { href: '/sql',          label: 'Explorateur SQL', icon: Database },
 ]
@@ -40,8 +41,8 @@ export function Sidebar() {
 
   return (
     <aside className={cn(
-      'relative flex flex-col h-screen transition-all duration-300 ease-in-out',
-      'bg-black border-r border-white/[0.04]',
+      'sticky top-0 flex flex-col h-screen transition-all duration-300 ease-in-out',
+      'bg-black border-r border-white/[0.04] z-20',
       collapsed ? 'w-16' : 'w-60'
     )}>
       {/* Logo */}

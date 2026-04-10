@@ -14,7 +14,7 @@ import {
   SortingState,
 } from '@tanstack/react-table'
 import { Eye, Link2, Unlink, Activity, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { formatDate, getAgentStatut } from '@/lib/utils'
 
 import { AdLinkingModal } from '@/components/common/AdLinkingModal'
 
@@ -142,17 +142,31 @@ export function AgentsTable({ agents, loading }: AgentsTableProps) {
       id: 'status',
       header: 'Statut',
       cell: ({ row }) => {
-        const isActif = row.original.actif !== false
+        const status = getAgentStatut(row.original)
+        
+        if (status === 'actif') {
+          return (
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="text-green-500" size={16} />
+              <span className="text-xs font-medium text-green-700">Actif</span>
+            </div>
+          )
+        }
+        
+        if (status === 'futur') {
+          return (
+            <div className="flex items-center gap-2">
+              <Activity className="text-indigo-400" size={16} />
+              <span className="text-xs font-medium text-indigo-600">Futur</span>
+            </div>
+          )
+        }
+
+        const label = status === 'parti' ? 'Parti' : 'Inactif'
         return (
           <div className="flex items-center gap-2">
-            {isActif ? (
-              <CheckCircle2 className="text-green-500" size={16} />
-            ) : (
-              <XCircle className="text-slate-300" size={16} />
-            )}
-            <span className={`text-xs font-medium ${isActif ? 'text-green-700' : 'text-slate-400'}`}>
-              {isActif ? 'Actif' : 'Inactif'}
-            </span>
+            <XCircle className="text-slate-300" size={16} />
+            <span className="text-xs font-medium text-slate-400">{label}</span>
           </div>
         )
       }

@@ -24,7 +24,7 @@ export function AgentAvatar({ agent, size = 'md', className }: AgentAvatarProps)
   // Mapping des bordures selon le statut demandé
   const borderStyles: Record<string, string> = {
     actif: 'border-solid border-2',
-    inactif: 'border-dashed border-2 opacity-70',
+    inactif: 'border-solid border-2 opacity-50 grayscale',
     parti: 'border-solid border-2 opacity-50 grayscale',
     futur: 'border-dotted border-2 opacity-90',
   }
@@ -58,6 +58,12 @@ export function AgentAvatar({ agent, size = 'md', className }: AgentAvatarProps)
       </div>
 
       {/* Badges */}
+      {!!agent.ad_count && agent.ad_count > 1 && (
+        <span className="absolute -top-1.5 -left-1.5 text-[9px] font-black px-1.5 py-1 rounded-full bg-indigo-600 text-white shadow-lg ring-1 ring-white leading-none z-10 flex items-center justify-center min-w-[18px]">
+          {agent.ad_count}
+        </span>
+      )}
+
       {isNouv && (
         <span className="absolute -top-1.5 -right-1.5 text-[9px] font-bold px-1 py-0.5 rounded-full bg-teal-500/90 text-white leading-none">
           Nouv

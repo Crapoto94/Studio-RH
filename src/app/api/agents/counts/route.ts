@@ -1,40 +1,117 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { z } from 'zod'
 
-export async function GET() {
+const getCountsSchema = z.object({
+  search: z.string().optional(),
+  direction: z.string().optional(),
+  service: z.string().optional(),
+  position: z.string().optional()
+})
+
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url)
+    const query = getCountsSchema.parse(Object.fromEntries(searchParams))
+
+    // Construction des conditions de filtrage communes
+    const commonConditions: any[] = []
+    if (query.search) {
+      commonConditions.push({
+        OR: [
+          { nom: { contains: query.search } },
+          { prenom: { contains: query.search } },
+          { matricule: { contains: query.search } },
+          { ad_id: { contains: query.search } }
+        ]
+      })
+    }
+    if (query.direction) commonConditions.push({ nom_direction: { contains: query.direction } })
+    if (query.service) commonConditions.push({ nom_service: { contains: query.service } })
+    if (query.position) commonConditions.push({ position_l: { equals: query.position } })
+
+    const whereBase = commonConditions.length > 0 ? { AND: commonConditions } : {}
+
     // Utilisation de Prisma count (correctement géré par Prisma 5.14 avec SQLite)
-    const [newAgents, recentlyLeft, futureAgents] = await Promise.all([
+    const now = new Date()
+    const todayMidnight = new Date()
+    todayMidnight.setHours(0, 0, 0, 0)
+    const endOfToday = new Date()
+    endOfToday.setHours(23, 59, 59, 999)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+
+    // Charger les positions actives depuis le paramétrage RH
+    const params = await prisma.parametre.findMany()
+    const config = Object.fromEntries(params.map((p: any) => [p.cle, p.valeur]))
+    const activePositions = (config['RH_POSITIONS_ACTIVES'] || '').split(',').filter(Boolean)
+
+    const [activeAgents, newAgents, recentlyLeft, allTimeLeft, futureAgents, multiAdAgents] = await Promise.all([
+      // Total agents actifs (basé sur les positions actives RH ET les filtres)
+      prisma.refAgent.count({ 
+        where: { 
+          ...whereBase,
+          plus_vu: null,
+          OR: [
+            { date_depart: null },
+            { date_depart: { gt: now } }
+          ],
+          ...(activePositions.length > 0 ? { position_l: { in: activePositions } } : {})
+        } 
+      }),
       // Nouveaux agents (-30j)
       prisma.refAgent.count({
         where: {
-          date_arrivee: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), lte: new Date() }
+          ...whereBase,
+          date_arrivee: { gte: thirtyDaysAgo, lte: now },
+          plus_vu: null,
+          actif: true
         }
       }),
-      // Agents partis (-30j)
+      // Agents partis récemment (plus_vu récemment OU date_depart passée récemment)
       prisma.refAgent.count({
         where: {
+          ...whereBase,
           OR: [
-            { date_depart: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), lte: new Date() } },
-            { 
-              actif: false, 
-              plus_vu: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), lte: new Date() } 
-            }
+            { plus_vu: { gte: thirtyDaysAgo } },
+            { date_depart: { gte: thirtyDaysAgo, lte: now } }
+          ]
+        }
+      }),
+      // Tous les agents partis (plus_vu non vide OU date_depart passée)
+      prisma.refAgent.count({
+        where: {
+          ...whereBase,
+          OR: [
+            { plus_vu: { not: null } },
+            { date_depart: { lte: now } }
           ]
         }
       }),
       // Futurs agents
       prisma.refAgent.count({
         where: {
-          date_arrivee: { gt: new Date() }
+          ...whereBase,
+          date_arrivee: { gt: now },
+          plus_vu: null,
+          actif: true
+        }
+      }),
+      // Multi-comptes AD
+      prisma.refAgent.count({
+        where: {
+          ...whereBase,
+          extra_ad_links: { some: {} }
         }
       })
     ])
 
     return NextResponse.json({
+      activeAgents,
       newAgents,
       recentlyLeft,
-      futureAgents
+      allTimeLeft,
+      futureAgents,
+      multiAdAgents
     })
   } catch (error) {
     console.error('API Counts Error:', error)

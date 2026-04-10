@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AgentAvatar } from './AgentAvatar'
 import { StatusBadge } from './StatusBadge'
 import { formatDate, formatPrenom } from '@/lib/utils'
+import { ChevronLeft, ChevronRight, Star, Trash2 } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 
 interface AgentModalProps {
   agent: Agent | null
@@ -18,19 +20,67 @@ interface AgentModalProps {
 }
 
 export function AgentModal({ agent, open, onOpenChange }: AgentModalProps) {
-  const [brutData, setBrutData] = useState<{ brutRh: any, brutAd: any, brutAzure: any } | null>(null)
+  const queryClient = useQueryClient()
+  const [brutData, setBrutData] = useState<{ brutRh: any, brutAds: any[], brutAzure: any } | null>(null)
   const [loadingBrut, setLoadingBrut] = useState(false)
+  const [currentAdIndex, setCurrentAdIndex] = useState(0)
+  const [actionLoading, setActionLoading] = useState(false)
+
+  const reloadData = async () => {
+    if (!agent?.id) return
+    setBrutData(null)
+    setLoadingBrut(true)
+    try {
+        const res = await fetch(`/api/agents/${agent.id}/brut`)
+        const data = await res.json()
+        setBrutData(data)
+    } finally {
+        setLoadingBrut(false)
+    }
+  }
+
+  const handlePromote = async () => {
+    if (!agent || !brutData?.brutAds[currentAdIndex]) return
+    const sam = brutData.brutAds[currentAdIndex].sam_account
+    if (confirm(`Promouvoir ${sam} comme compte principal ?`)) {
+      setActionLoading(true)
+      try {
+        await fetch('/api/agents/link-ad', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId: agent.id, adId: sam })
+        })
+        queryClient.invalidateQueries({ queryKey: ['agents'] })
+        reloadData()
+        setCurrentAdIndex(0)
+      } finally {
+        setActionLoading(false)
+      }
+    }
+  }
+
+  const handleDeleteExtra = async () => {
+    if (!agent || !brutData?.brutAds[currentAdIndex]) return
+    const sam = brutData.brutAds[currentAdIndex].sam_account
+    if (confirm(`Supprimer le lien avec le compte ${sam} ?`)) {
+      setActionLoading(true)
+      try {
+        await fetch(`/api/agents/extra-ad-links?agentId=${agent.id}&samAccount=${sam}`, {
+          method: 'DELETE'
+        })
+        queryClient.invalidateQueries({ queryKey: ['agents'] })
+        reloadData()
+        setCurrentAdIndex(0)
+      } finally {
+        setActionLoading(false)
+      }
+    }
+  }
 
   useEffect(() => {
     if (open && agent?.id) {
-      setLoadingBrut(true)
-      fetch(`/api/agents/${agent.id}/brut`)
-        .then(res => res.json())
-        .then(data => {
-            setBrutData(data)
-            setLoadingBrut(false)
-        })
-        .catch(console.error)
+      setCurrentAdIndex(0)
+      reloadData()
     }
   }, [open, agent?.id])
 
@@ -57,7 +107,11 @@ export function AgentModal({ agent, open, onOpenChange }: AgentModalProps) {
           <div className="flex flex-col items-end gap-2">
             <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded">Matricule: {agent.matricule}</span>
             <div className="flex gap-2">
-              {agent.ad_id && <StatusBadge status="success">AD Lié</StatusBadge>}
+              {agent.ad_id && (
+                <StatusBadge status="success">
+                    {agent.ad_count && agent.ad_count > 1 ? `AD Lié (${agent.ad_count})` : 'AD Lié'}
+                </StatusBadge>
+              )}
               {agent.azure_id && <StatusBadge status="info">Azure Lié</StatusBadge>}
             </div>
           </div>
@@ -104,8 +158,60 @@ export function AgentModal({ agent, open, onOpenChange }: AgentModalProps) {
             </TabsContent>
 
             <TabsContent value="ad" className="mt-0">
-                {loadingBrut ? <LoadingPlaceholder /> : !brutData?.brutAd ? <EmptyPlaceholder type="Active Directory" /> : (
-                    <RawDataGrid data={brutData.brutAd} />
+                {loadingBrut ? <LoadingPlaceholder /> : !brutData?.brutAds?.length ? <EmptyPlaceholder type="Active Directory" /> : (
+                    <div className="space-y-4">
+                        {brutData.brutAds.length > 1 && (
+                            <div className="flex items-center justify-between bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 mb-2">
+                                <div className="flex flex-col pl-2">
+                                    <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest leading-none mb-1">
+                                        Compte AD {currentAdIndex + 1} / {brutData.brutAds.length}
+                                    </div>
+                                    <div className="text-sm font-bold text-slate-700 font-mono">
+                                        {brutData.brutAds[currentAdIndex].sam_account}
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    {currentAdIndex > 0 && (
+                                        <>
+                                            <button 
+                                                onClick={handlePromote}
+                                                disabled={actionLoading}
+                                                className="p-2 rounded-lg bg-amber-50 shadow-sm border border-amber-100 hover:bg-amber-600 hover:text-white transition-all text-amber-600"
+                                                title="Définir comme compte principal"
+                                            >
+                                                <Star size={18} fill={actionLoading ? 'currentColor' : 'none'} />
+                                            </button>
+                                            <button 
+                                                onClick={handleDeleteExtra}
+                                                disabled={actionLoading}
+                                                className="p-2 rounded-lg bg-rose-50 shadow-sm border border-rose-100 hover:bg-rose-600 hover:text-white transition-all text-rose-600 mr-2"
+                                                title="Supprimer ce lien secondaire"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </>
+                                    )}
+                                    <button 
+                                        onClick={() => setCurrentAdIndex(prev => Math.max(0, prev - 1))}
+                                        disabled={currentAdIndex === 0 || actionLoading}
+                                        className="p-2 rounded-lg bg-white shadow-sm border border-indigo-100 hover:bg-indigo-50 disabled:opacity-30 transition-all text-indigo-600"
+                                        title="Compte précédent"
+                                    >
+                                        <ChevronLeft size={18} />
+                                    </button>
+                                    <button 
+                                        onClick={() => setCurrentAdIndex(prev => Math.min(brutData.brutAds.length - 1, prev + 1))}
+                                        disabled={currentAdIndex === brutData.brutAds.length - 1 || actionLoading}
+                                        className="p-2 rounded-lg bg-white shadow-sm border border-indigo-100 hover:bg-indigo-50 disabled:opacity-30 transition-all text-indigo-600"
+                                        title="Compte suivant"
+                                    >
+                                        <ChevronRight size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        <RawDataGrid data={brutData.brutAds[currentAdIndex]} />
+                    </div>
                 )}
             </TabsContent>
 

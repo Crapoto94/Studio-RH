@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Agent } from '@/types'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Search, Link2, Loader2, Check } from 'lucide-react'
+import { Search, Link2, Loader2, Check, Plus, Unlink } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 
 interface AdLinkingModalProps {
@@ -42,17 +42,19 @@ export function AdLinkingModal({ agent, open, onOpenChange }: AdLinkingModalProp
     }
   }
 
-  const handleLink = async (adId: string) => {
+  const handleLink = async (adId: string, type: 'primary' | 'secondary' = 'primary') => {
     if (!agent) return
     setLinking(adId)
     try {
-      await fetch('/api/agents/link-ad', {
+      const endpoint = type === 'primary' ? '/api/agents/link-ad' : '/api/agents/extra-ad-links'
+      await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentId: agent.id, adId })
       })
       queryClient.invalidateQueries({ queryKey: ['agents'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] })
+      // On recharge aussi si on est dans la modale
       onOpenChange(false)
     } finally {
       setLinking(null)
@@ -114,14 +116,26 @@ export function AdLinkingModal({ agent, open, onOpenChange }: AdLinkingModalProp
                         <div className="font-medium text-slate-800 text-sm truncate">{r.display_name}</div>
                         <div className="text-xs text-slate-500 font-mono truncate">{r.sam_account}</div>
                       </div>
-                      <button
-                        onClick={() => handleLink(r.sam_account)}
-                        disabled={!!linking}
-                        className="opacity-0 group-hover:opacity-100 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-600 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all"
-                      >
-                        {linking === r.sam_account ? <Loader2 className="animate-spin" size={14} /> : <Link2 size={14} />}
-                        Lier
-                      </button>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => handleLink(r.sam_account, 'primary')}
+                          disabled={!!linking}
+                          className="opacity-0 group-hover:opacity-100 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-600 rounded-md text-[10px] font-bold flex items-center gap-1 transition-all"
+                          title="Définir comme compte principal"
+                        >
+                          {linking === r.sam_account ? <Loader2 className="animate-spin" size={12} /> : <Link2 size={12} />}
+                          Principal
+                        </button>
+                        <button
+                          onClick={() => handleLink(r.sam_account, 'secondary')}
+                          disabled={!!linking}
+                          className="opacity-0 group-hover:opacity-100 px-3 py-1.5 bg-slate-50 hover:bg-slate-800 hover:text-white text-slate-600 rounded-md text-[10px] font-bold flex items-center gap-1 transition-all"
+                          title="Ajouter comme compte secondaire"
+                        >
+                          {linking === r.sam_account ? <Loader2 className="animate-spin" size={12} /> : <Plus size={12} />}
+                          Secondaire
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -132,9 +146,10 @@ export function AdLinkingModal({ agent, open, onOpenChange }: AdLinkingModalProp
                  <button
                     onClick={() => handleLink('')}
                     disabled={!!linking}
-                    className="text-xs text-red-500 hover:text-red-700 underline"
+                    className="text-xs text-red-500 hover:text-red-700 underline flex items-center justify-center gap-1 mx-auto"
+                    title="Supprime uniquement l'identifiant AD principal de cet agent. Les comptes secondaires doivent être gérés dans la fiche détaillée."
                   >
-                    Détacher le compte AD actuel ({agent.ad_id})
+                    <Unlink size={12} /> Détacher le compte principal ({agent.ad_id})
                  </button>
               </div>
             )}

@@ -23,17 +23,19 @@ function useDebounce<T>(value: T, delay: number): T {
 
 import { useQuery } from '@tanstack/react-query'
 
-export const useAgents = (initialFilters = { 
+export const useAgents = (initialFilters: Record<string, any> = { 
   page: 1, 
   limit: 25, 
   search: '', 
   direction: '', 
   service: '', 
   statut: '',
+  position: '',
   dateArriveeMin: '',
   dateArriveeMax: '',
   dateDepartMin: '',
   dateDepartMax: '',
+  multiAdOnly: ''
 }) => {
   const [filters, setFilters] = useState(initialFilters)
   const debouncedSearch = useDebounce(filters.search, 300)
@@ -51,10 +53,12 @@ export const useAgents = (initialFilters = {
       if (activeFilters.direction) params.append('direction', activeFilters.direction)
       if (activeFilters.service) params.append('service', activeFilters.service)
       if (activeFilters.statut) params.append('statut', activeFilters.statut)
+      if (activeFilters.position) params.append('position', activeFilters.position)
       if (activeFilters.dateArriveeMin) params.append('dateArriveeMin', activeFilters.dateArriveeMin)
       if (activeFilters.dateArriveeMax) params.append('dateArriveeMax', activeFilters.dateArriveeMax)
       if (activeFilters.dateDepartMin) params.append('dateDepartMin', activeFilters.dateDepartMin)
       if (activeFilters.dateDepartMax) params.append('dateDepartMax', activeFilters.dateDepartMax)
+      if (activeFilters.multiAdOnly) params.append('multiAdOnly', activeFilters.multiAdOnly)
         
       const res = await fetch(`/api/agents?${params}`)
       if (!res.ok) throw new Error('Failed to fetch')

@@ -156,8 +156,9 @@ model RefAgent {
   updated_at         DateTime     @updatedAt
   fonction_l         String?
   poste_l            String?
-  onboardingManagers Onboarding[] @relation("OnboardingManager")
-  onboardingAgents   Onboarding[] @relation("OnboardingAgent")
+  onboardingManagers Onboarding[]    @relation("OnboardingManager")
+  onboardingAgents   Onboarding[]    @relation("OnboardingAgent")
+  extra_ad_links     ExtraAdLink[]   @relation("ExtraAdLinks")
 
   @@map("REF_AGENTS")
 }
@@ -352,4 +353,23 @@ model CronJob {
   updated_at      DateTime  @updatedAt
 
   @@map("CRON_JOBS")
+}
+
+model AdExclusion {
+  id          Int      @id @default(autoincrement())
+  sam_account String   @unique
+  reason      String?
+  created_at  DateTime @default(now())
+
+  @@map("AD_EXCLUSIONS")
+}
+
+model ExtraAdLink {
+  id          Int      @id @default(autoincrement())
+  agent_id    Int
+  sam_account String   @unique
+  created_at  DateTime @default(now())
+  agent       RefAgent @relation("ExtraAdLinks", fields: [agent_id], references: [id])
+
+  @@map("EXTRA_AD_LINKS")
 }

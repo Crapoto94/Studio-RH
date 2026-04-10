@@ -38,6 +38,23 @@ export async function PUT(req: NextRequest) {
       create: { cle: key, valeur: String(value) }
     })
 
+    // Si on change les positions actives, on recalcule le flag 'actif' pour TOUS les agents
+    if (key === 'RH_POSITIONS_ACTIVES') {
+      const activePositions = String(value).split(',').filter(Boolean)
+      
+      // On désactive tout le monde par défaut (ou selon les positions)
+      await prisma.refAgent.updateMany({
+        data: { actif: false }
+      })
+
+      if (activePositions.length > 0) {
+        await prisma.refAgent.updateMany({
+          where: { position_l: { in: activePositions } },
+          data: { actif: true }
+        })
+      }
+    }
+
     return NextResponse.json(updated)
   } catch (error) {
     console.error('API Parametres PUT Error:', error)

@@ -18,15 +18,18 @@ async function getDashboardStats() {
   const params = await prisma.parametre.findMany()
   const config = Object.fromEntries(params.map(p => [p.cle, p.valeur]))
   const activePositions = (config['RH_POSITIONS_ACTIVES'] || '').split(',').filter(Boolean)
-
-  let activeAgents = totalAgents
-  if (activePositions.length > 0) {
-    // We use raw query to handle the dynamic list of positions
-    const posList = activePositions.map(p => `'${p.replace(/'/g, "''")}'`).join(',')
-    const activeData: any[] = await prisma.$queryRawUnsafe(`SELECT COUNT(*) as count FROM "REF_AGENTS" WHERE position_l IN (${posList})`)
-    activeAgents = Number(activeData[0]?.count || 0)
-  }
   const now = new Date()
+  let activeAgents = await prisma.refAgent.count({
+    where: {
+      plus_vu: null,
+      actif: true,
+      OR: [
+        { date_depart: null },
+        { date_depart: { gt: now } }
+      ],
+      ...(activePositions.length > 0 ? { position_l: { in: activePositions } } : {})
+    }
+  })
 
   // Custom logic to compute active count (in production, complex queries might be used)
   const allAgents = await prisma.refAgent.findMany({
@@ -37,12 +40,17 @@ async function getDashboardStats() {
   const comptesAzure = allAgents.filter((a: any) => a.azure_id).length
 
   // Position distribution for Pie Chart
-  const posDistribution: any[] = await prisma.$queryRaw`
-    SELECT position_l, COUNT(*) as count 
-    FROM "REF_AGENTS" 
-    GROUP BY position_l 
-    ORDER BY count DESC
-  `
+  let posDistribution: any[] = []
+  try {
+    posDistribution = await prisma.$queryRaw`
+      SELECT position_l, COUNT(*) as count 
+      FROM REF_AGENTS 
+      GROUP BY position_l 
+      ORDER BY count DESC
+    `
+  } catch (e) {
+    console.error("Dashboard SQL Error (posDistribution):", e)
+  }
 
   // Recent logs
   const logs = await prisma.synchroLog.findMany({

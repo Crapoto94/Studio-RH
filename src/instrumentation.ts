@@ -1,15 +1,9 @@
 export async function register() {
+  // instrumentation.ts s'exécute à chaque démarrage d'instance Next.js
+  // Idéal pour lancer le CronManager en mode standalone / production
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     const { cronManager } = await import('./lib/cronManager')
-    
-    // Pour éviter de charger les crons plusieurs fois en mode dev
-    if (process.env.NODE_ENV !== 'production') {
-      if (!(global as any).__CRON_STARTED__) {
-        (global as any).__CRON_STARTED__ = true
-        cronManager.loadJobs()
-      }
-    } else {
-      cronManager.loadJobs()
-    }
+    console.log('[INSTRUMENTATION] Booting CronManager...')
+    await cronManager.loadJobs()
   }
 }
