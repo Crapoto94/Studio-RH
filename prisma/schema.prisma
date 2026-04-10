@@ -309,3 +309,12 @@ model ExtraAdLink {
   @@map("EXTRA_AD_LINKS")
 }
 
+
+model AdExclusion {
+  id          Int      @id @default(autoincrement())
+  sam_account String   @unique
+  reason      String?
+  created_at  DateTime @default(now())
+
+  @@map("AD_EXCLUSIONS")
+}

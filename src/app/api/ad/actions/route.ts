@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     switch (action) {
       case 'ignore':
         for (const account of targetAccounts) {
-          await prismaLocal.adExclusion.upsert({
+          await prisma.adExclusion.upsert({
             where: { sam_account: account },
             update: { reason: reason || 'Non spécifié' },
             create: { sam_account: account, reason: reason || 'Non spécifié' }
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
         break
 
       case 'remove-ignore':
-        await prismaLocal.adExclusion.deleteMany({
+        await prisma.adExclusion.deleteMany({
           where: { sam_account: { in: targetAccounts } }
         })
         break

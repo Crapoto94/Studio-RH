@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
             select: { ad_id: true }
         }),
         prisma.brutAd.findMany(),
-        prismaLocal.adExclusion.findMany(),
+        prisma.adExclusion.findMany(),
         (prisma as any).extraAdLink.findMany()
     ])
 

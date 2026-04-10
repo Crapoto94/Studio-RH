@@ -164,13 +164,6 @@ exports.Prisma.AlignmentScalarFieldEnum = {
   updated_at: 'updated_at'
 };
 
-exports.Prisma.AdExclusionScalarFieldEnum = {
-  id: 'id',
-  sam_account: 'sam_account',
-  reason: 'reason',
-  created_at: 'created_at'
-};
-
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -187,8 +180,7 @@ exports.Prisma.ModelName = {
   AppRole: 'AppRole',
   AppUser: 'AppUser',
   CronJob: 'CronJob',
-  Alignment: 'Alignment',
-  AdExclusion: 'AdExclusion'
+  Alignment: 'Alignment'
 };
 
 /**
