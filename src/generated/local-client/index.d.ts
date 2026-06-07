@@ -4123,10 +4123,12 @@ export namespace Prisma {
 
   export type CronJobAvgAggregateOutputType = {
     id: number | null
+    sort_order: number | null
   }
 
   export type CronJobSumAggregateOutputType = {
     id: number | null
+    sort_order: number | null
   }
 
   export type CronJobMinAggregateOutputType = {
@@ -4135,6 +4137,7 @@ export namespace Prisma {
     type: string | null
     schedule: string | null
     schedule_type: string | null
+    sort_order: number | null
     is_active: boolean | null
     last_run: Date | null
     next_run: Date | null
@@ -4148,6 +4151,7 @@ export namespace Prisma {
     type: string | null
     schedule: string | null
     schedule_type: string | null
+    sort_order: number | null
     is_active: boolean | null
     last_run: Date | null
     next_run: Date | null
@@ -4161,6 +4165,7 @@ export namespace Prisma {
     type: number
     schedule: number
     schedule_type: number
+    sort_order: number
     is_active: number
     last_run: number
     next_run: number
@@ -4172,10 +4177,12 @@ export namespace Prisma {
 
   export type CronJobAvgAggregateInputType = {
     id?: true
+    sort_order?: true
   }
 
   export type CronJobSumAggregateInputType = {
     id?: true
+    sort_order?: true
   }
 
   export type CronJobMinAggregateInputType = {
@@ -4184,6 +4191,7 @@ export namespace Prisma {
     type?: true
     schedule?: true
     schedule_type?: true
+    sort_order?: true
     is_active?: true
     last_run?: true
     next_run?: true
@@ -4197,6 +4205,7 @@ export namespace Prisma {
     type?: true
     schedule?: true
     schedule_type?: true
+    sort_order?: true
     is_active?: true
     last_run?: true
     next_run?: true
@@ -4210,6 +4219,7 @@ export namespace Prisma {
     type?: true
     schedule?: true
     schedule_type?: true
+    sort_order?: true
     is_active?: true
     last_run?: true
     next_run?: true
@@ -4310,6 +4320,7 @@ export namespace Prisma {
     type: string
     schedule: string
     schedule_type: string
+    sort_order: number
     is_active: boolean
     last_run: Date | null
     next_run: Date | null
@@ -4342,6 +4353,7 @@ export namespace Prisma {
     type?: boolean
     schedule?: boolean
     schedule_type?: boolean
+    sort_order?: boolean
     is_active?: boolean
     last_run?: boolean
     next_run?: boolean
@@ -4355,6 +4367,7 @@ export namespace Prisma {
     type?: boolean
     schedule?: boolean
     schedule_type?: boolean
+    sort_order?: boolean
     is_active?: boolean
     last_run?: boolean
     next_run?: boolean
@@ -4373,6 +4386,7 @@ export namespace Prisma {
       type: string
       schedule: string
       schedule_type: string
+      sort_order: number
       is_active: boolean
       last_run: Date | null
       next_run: Date | null
@@ -4803,6 +4817,7 @@ export namespace Prisma {
     readonly type: FieldRef<"CronJob", 'String'>
     readonly schedule: FieldRef<"CronJob", 'String'>
     readonly schedule_type: FieldRef<"CronJob", 'String'>
+    readonly sort_order: FieldRef<"CronJob", 'Int'>
     readonly is_active: FieldRef<"CronJob", 'Boolean'>
     readonly last_run: FieldRef<"CronJob", 'DateTime'>
     readonly next_run: FieldRef<"CronJob", 'DateTime'>
@@ -7071,6 +7086,7 @@ export namespace Prisma {
     type: 'type',
     schedule: 'schedule',
     schedule_type: 'schedule_type',
+    sort_order: 'sort_order',
     is_active: 'is_active',
     last_run: 'last_run',
     next_run: 'next_run',
@@ -7344,6 +7360,7 @@ export namespace Prisma {
     type?: StringFilter<"CronJob"> | string
     schedule?: StringFilter<"CronJob"> | string
     schedule_type?: StringFilter<"CronJob"> | string
+    sort_order?: IntFilter<"CronJob"> | number
     is_active?: BoolFilter<"CronJob"> | boolean
     last_run?: DateTimeNullableFilter<"CronJob"> | Date | string | null
     next_run?: DateTimeNullableFilter<"CronJob"> | Date | string | null
@@ -7357,6 +7374,7 @@ export namespace Prisma {
     type?: SortOrder
     schedule?: SortOrder
     schedule_type?: SortOrder
+    sort_order?: SortOrder
     is_active?: SortOrder
     last_run?: SortOrderInput | SortOrder
     next_run?: SortOrderInput | SortOrder
@@ -7373,6 +7391,7 @@ export namespace Prisma {
     type?: StringFilter<"CronJob"> | string
     schedule?: StringFilter<"CronJob"> | string
     schedule_type?: StringFilter<"CronJob"> | string
+    sort_order?: IntFilter<"CronJob"> | number
     is_active?: BoolFilter<"CronJob"> | boolean
     last_run?: DateTimeNullableFilter<"CronJob"> | Date | string | null
     next_run?: DateTimeNullableFilter<"CronJob"> | Date | string | null
@@ -7386,6 +7405,7 @@ export namespace Prisma {
     type?: SortOrder
     schedule?: SortOrder
     schedule_type?: SortOrder
+    sort_order?: SortOrder
     is_active?: SortOrder
     last_run?: SortOrderInput | SortOrder
     next_run?: SortOrderInput | SortOrder
@@ -7407,6 +7427,7 @@ export namespace Prisma {
     type?: StringWithAggregatesFilter<"CronJob"> | string
     schedule?: StringWithAggregatesFilter<"CronJob"> | string
     schedule_type?: StringWithAggregatesFilter<"CronJob"> | string
+    sort_order?: IntWithAggregatesFilter<"CronJob"> | number
     is_active?: BoolWithAggregatesFilter<"CronJob"> | boolean
     last_run?: DateTimeNullableWithAggregatesFilter<"CronJob"> | Date | string | null
     next_run?: DateTimeNullableWithAggregatesFilter<"CronJob"> | Date | string | null
@@ -7723,6 +7744,7 @@ export namespace Prisma {
     type: string
     schedule: string
     schedule_type: string
+    sort_order?: number
     is_active?: boolean
     last_run?: Date | string | null
     next_run?: Date | string | null
@@ -7736,6 +7758,7 @@ export namespace Prisma {
     type: string
     schedule: string
     schedule_type: string
+    sort_order?: number
     is_active?: boolean
     last_run?: Date | string | null
     next_run?: Date | string | null
@@ -7748,6 +7771,7 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     schedule?: StringFieldUpdateOperationsInput | string
     schedule_type?: StringFieldUpdateOperationsInput | string
+    sort_order?: IntFieldUpdateOperationsInput | number
     is_active?: BoolFieldUpdateOperationsInput | boolean
     last_run?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     next_run?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -7761,6 +7785,7 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     schedule?: StringFieldUpdateOperationsInput | string
     schedule_type?: StringFieldUpdateOperationsInput | string
+    sort_order?: IntFieldUpdateOperationsInput | number
     is_active?: BoolFieldUpdateOperationsInput | boolean
     last_run?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     next_run?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -7774,6 +7799,7 @@ export namespace Prisma {
     type: string
     schedule: string
     schedule_type: string
+    sort_order?: number
     is_active?: boolean
     last_run?: Date | string | null
     next_run?: Date | string | null
@@ -7786,6 +7812,7 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     schedule?: StringFieldUpdateOperationsInput | string
     schedule_type?: StringFieldUpdateOperationsInput | string
+    sort_order?: IntFieldUpdateOperationsInput | number
     is_active?: BoolFieldUpdateOperationsInput | boolean
     last_run?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     next_run?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -7799,6 +7826,7 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     schedule?: StringFieldUpdateOperationsInput | string
     schedule_type?: StringFieldUpdateOperationsInput | string
+    sort_order?: IntFieldUpdateOperationsInput | number
     is_active?: BoolFieldUpdateOperationsInput | boolean
     last_run?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     next_run?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -8171,6 +8199,7 @@ export namespace Prisma {
     type?: SortOrder
     schedule?: SortOrder
     schedule_type?: SortOrder
+    sort_order?: SortOrder
     is_active?: SortOrder
     last_run?: SortOrder
     next_run?: SortOrder
@@ -8180,6 +8209,7 @@ export namespace Prisma {
 
   export type CronJobAvgOrderByAggregateInput = {
     id?: SortOrder
+    sort_order?: SortOrder
   }
 
   export type CronJobMaxOrderByAggregateInput = {
@@ -8188,6 +8218,7 @@ export namespace Prisma {
     type?: SortOrder
     schedule?: SortOrder
     schedule_type?: SortOrder
+    sort_order?: SortOrder
     is_active?: SortOrder
     last_run?: SortOrder
     next_run?: SortOrder
@@ -8201,6 +8232,7 @@ export namespace Prisma {
     type?: SortOrder
     schedule?: SortOrder
     schedule_type?: SortOrder
+    sort_order?: SortOrder
     is_active?: SortOrder
     last_run?: SortOrder
     next_run?: SortOrder
@@ -8210,6 +8242,7 @@ export namespace Prisma {
 
   export type CronJobSumOrderByAggregateInput = {
     id?: SortOrder
+    sort_order?: SortOrder
   }
 
   export type DateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {

@@ -350,8 +350,8 @@ export async function runBrutSync(): Promise<SyncResult> {
 
   const apiUrl = config['API_ASTRE_URL'] || config['API_VILLE_URL']
   const apiKey = config['API_ASTRE_KEY'] || config['API_VILLE_TOKEN']
-  const rhViewName = config['SQL_VIEW_RH']
-  const hierViewName = config['SQL_VIEW_HIER']
+  const rhViewName = config['SQL_VIEW_RH'] || 'V_AGENT_RH_FULL'
+  const hierViewName = config['SQL_VIEW_HIER'] || 'rh_siim_organigramme_v2'
 
   const adUrl = config['AD_SERVER_URL'] || config['AD_SERVER']
   const adPort = parseInt(config['AD_PORT'] || '389', 10)

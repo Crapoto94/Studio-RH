@@ -5,7 +5,7 @@ import { cronManager } from '@/lib/cronManager'
 export async function GET() {
   try {
     const crons = await prismaLocal.cronJob.findMany({
-      orderBy: { created_at: 'desc' },
+      orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
     })
     return NextResponse.json(crons)
   } catch (error) {
@@ -23,12 +23,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
+    const maxOrder = await prismaLocal.cronJob.aggregate({ _max: { sort_order: true } })
+    const nextOrder = (maxOrder._max.sort_order ?? -1) + 1
+
     const cron = await prismaLocal.cronJob.create({
       data: {
         name,
         type,
         schedule,
         schedule_type,
+        sort_order: nextOrder,
         is_active: true
       }
     })

@@ -147,6 +147,7 @@ exports.Prisma.CronJobScalarFieldEnum = {
   type: 'type',
   schedule: 'schedule',
   schedule_type: 'schedule_type',
+  sort_order: 'sort_order',
   is_active: 'is_active',
   last_run: 'last_run',
   next_run: 'next_run',

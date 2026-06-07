@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 
     const mockViews = type === 'rh'
       ? ['V_AGENT_RH_FULL', 'V_AGENT_CONTRATS', 'V_AGENT_COORDONNEES']
-      : ['V_HIERARCHIE_FLAT', 'V_HIERARCHIE_SERVICES', 'V_HIERARCHIE_SECTEURS']
+      : ['rh_siim_organigramme_v2', 'rh_siim_organigramme', 'V_HIERARCHIE_FLAT', 'V_HIERARCHIE_SERVICES']
 
     if (!apiUrl) {
       return NextResponse.json({ data: mockViews, note: "API Ville non configurée — données exemples" })

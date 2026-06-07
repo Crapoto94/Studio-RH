@@ -5,7 +5,7 @@ import { PageContainer } from '@/components/layout/PageContainer'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatusBadge } from '@/components/common/StatusBadge'
-import { Clock, Play, Plus, Trash2, Edit2, Loader2, Power } from 'lucide-react'
+import { Clock, Play, Plus, Trash2, Edit2, Loader2, Power, ChevronUp, ChevronDown, PlayCircle } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 export default function CronsPage() {
@@ -55,6 +55,31 @@ export default function CronsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['crons'] })
   })
 
+  const reorderMutation = useMutation({
+    mutationFn: async ({ id, newOrder }: { id: number, newOrder: number }) => {
+      const res = await fetch('/api/crons/reorder', {
+        method: 'PATCH', body: JSON.stringify({ id, newOrder }), headers: { 'Content-Type': 'application/json' }
+      })
+      if (!res.ok) throw new Error('Erreur de réordonnancement')
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['crons'] })
+  })
+
+  const runAllMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/crons/run-all', { method: 'POST' })
+      if (!res.ok) throw new Error('Erreur')
+      return res.json()
+    },
+    onSuccess: (data) => {
+      const allOk = data.results?.every((r: any) => r.success)
+      alert(allOk
+        ? 'Toutes les synchronisations terminées avec succès !'
+        : 'Certaines synchronisations ont échoué. Voir les logs pour plus de détails.')
+      queryClient.invalidateQueries({ queryKey: ['crons'] })
+    }
+  })
+
   const handleEdit = (cron: any) => {
     setFormData(cron)
     setEditingId(cron.id)
@@ -74,12 +99,22 @@ export default function CronsPage() {
           title="Tâches Cron"
           icon={Clock}
           actions={
-            <button 
-              onClick={() => { setEditingId(null); setFormData({ name: '', type: 'rh', schedule_type: 'daily', schedule: '02:00' }); setShowForm(true); }}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition"
-            >
-              <Plus size={16} /> Nouvelle tâche
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => runAllMutation.mutate()}
+                disabled={runAllMutation.isPending}
+                className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition disabled:opacity-50"
+              >
+                {runAllMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <PlayCircle size={16} />}
+                {runAllMutation.isPending ? 'Exécution...' : 'Tout exécuter'}
+              </button>
+              <button 
+                onClick={() => { setEditingId(null); setFormData({ name: '', type: 'rh', schedule_type: 'daily', schedule: '02:00' }); setShowForm(true); }}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition"
+              >
+                <Plus size={16} /> Nouvelle tâche
+              </button>
+            </div>
           }
         />
 
@@ -149,10 +184,30 @@ export default function CronsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {crons?.map((cron: any) => (
+                {crons?.map((cron: any, idx: number) => (
                   <tr key={cron.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="py-4 pl-6">
-                       <span className="font-bold text-slate-800">{cron.name}</span>
+                       <div className="flex items-center gap-3">
+                         <div className="flex flex-col gap-0.5">
+                           <button
+                             onClick={() => reorderMutation.mutate({ id: cron.id, newOrder: cron.sort_order - 1 })}
+                             disabled={idx === 0}
+                             className="p-0.5 text-slate-300 hover:text-indigo-600 disabled:opacity-20 disabled:cursor-not-allowed transition"
+                             title="Monter"
+                           >
+                             <ChevronUp size={14} />
+                           </button>
+                           <button
+                             onClick={() => reorderMutation.mutate({ id: cron.id, newOrder: cron.sort_order + 1 })}
+                             disabled={idx === crons.length - 1}
+                             className="p-0.5 text-slate-300 hover:text-indigo-600 disabled:opacity-20 disabled:cursor-not-allowed transition"
+                             title="Descendre"
+                           >
+                             <ChevronDown size={14} />
+                           </button>
+                         </div>
+                         <span className="font-bold text-slate-800">{cron.name}</span>
+                       </div>
                     </td>
                     <td className="py-4">
                        <StatusBadge status={cron.type === 'rh' ? 'success' : 'info'}>{cron.type.toUpperCase()}</StatusBadge>
