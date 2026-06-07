@@ -465,21 +465,30 @@ export async function runBrutSync(): Promise<SyncResult> {
         if (Array.isArray(dataHier)) {
           await updateProgress(33, `[HIER] ${dataHier.length} lignes reçues. Suppression ancienne table...`)
           await prisma.brutHierarchie.deleteMany()
-          const mappedHier = dataHier.map((item: any) => ({
-            code_affect: String(item.AFFECT || item.CODE_AFFECT || ''),
-            nom_affect_l: String(item.AFFECT_L || item.NOM_AFFECT_L || ''),
-            code_secteur: String(item.SECTEUR || item.CODE_SECTEUR || ''),
-            nom_secteur_l: String(item.SECTEUR_L || item.NOM_SECTEUR_L || ''),
-            code_service: String(item.SERVICE || item.CODE_SERVICE || ''),
-            nom_service_l: String(item.SERVICE_L || item.NOM_SERVICE_L || ''),
-            code_direction: String(item.DIRECTION || item.CODE_DIRECTION || ''),
-            nom_direction_l: String(item.DIRECTION_L || item.NOM_DIRECTION_L || ''),
-            code_dg_cab: String(item.DG_CAB || item.CODE_DG_CAB || ''),
-            nom_dg_cab_l: String(item.DG_CAB_L || item.NOM_DG_CAB_L || ''),
-            type_structure: String(item.TYPE_STRUCTURE || ''),
-            responsable_nom: String(item.RESPONSABLE_NOM || ''),
-            responsable_id: String(item.RESPONSABLE_ID || '')
-          }))
+          const mappedHier = dataHier.map((item: any) => {
+            const affect   = String(item.AFFECT || item.CODE_AFFECT || '')
+            const affect_l = String(item.AFFECT_L || item.NOM_AFFECT_L || '')
+            const service  = String(item.SERVICE || item.CODE_SERVICE || '')
+            const service_l= String(item.SERVICE_L || item.NOM_SERVICE_L || '')
+            // v2 may store service info in AFFECT/AFFECT_L instead of SERVICE/SERVICE_L
+            const finalService   = service || affect
+            const finalServiceL  = service_l || affect_l
+            return {
+              code_affect: affect,
+              nom_affect_l: affect_l,
+              code_secteur: String(item.SECTEUR || item.CODE_SECTEUR || ''),
+              nom_secteur_l: String(item.SECTEUR_L || item.NOM_SECTEUR_L || ''),
+              code_service: finalService,
+              nom_service_l: finalServiceL,
+              code_direction: String(item.DIRECTION || item.CODE_DIRECTION || ''),
+              nom_direction_l: String(item.DIRECTION_L || item.NOM_DIRECTION_L || ''),
+              code_dg_cab: String(item.DG_CAB || item.CODE_DG_CAB || ''),
+              nom_dg_cab_l: String(item.DG_CAB_L || item.NOM_DG_CAB_L || ''),
+              type_structure: String(item.TYPE_STRUCTURE || ''),
+              responsable_nom: String(item.RESPONSABLE_NOM || ''),
+              responsable_id: String(item.RESPONSABLE_ID || '')
+            }
+          })
           await updateProgress(36, `[2/4] Hiérarchie : insertion de ${mappedHier.length} structures...`)
           await prisma.brutHierarchie.createMany({ data: mappedHier })
           stats.hier = mappedHier.length
