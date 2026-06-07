@@ -164,6 +164,18 @@ exports.Prisma.AlignmentScalarFieldEnum = {
   updated_at: 'updated_at'
 };
 
+exports.Prisma.ApiKeyScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  key_hash: 'key_hash',
+  key_prefix: 'key_prefix',
+  permissions: 'permissions',
+  expires_at: 'expires_at',
+  is_active: 'is_active',
+  created_at: 'created_at',
+  created_by: 'created_by'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -180,7 +192,8 @@ exports.Prisma.ModelName = {
   AppRole: 'AppRole',
   AppUser: 'AppUser',
   CronJob: 'CronJob',
-  Alignment: 'Alignment'
+  Alignment: 'Alignment',
+  ApiKey: 'ApiKey'
 };
 
 /**

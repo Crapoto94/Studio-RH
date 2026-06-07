@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { PageHeader } from '@/components/common/PageHeader'
 import { AdminGuard } from '@/components/layout/AdminGuard'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Settings, Save, Server, Shield, FileText, Blocks, Users, Wifi, Search, CheckCircle2, XCircle, Loader2, Mail, MessageSquare, History, Database } from 'lucide-react'
+import { Settings, Save, Server, Shield, FileText, Blocks, Users, Wifi, Search, CheckCircle2, XCircle, Loader2, Mail, MessageSquare, History, Database, Key } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -16,6 +16,7 @@ import { MailTemplatesSettings } from '@/components/parametres/MailTemplatesSett
 import { RolesAndUsers } from '@/components/parametres/RolesAndUsers'
 import { ImportDepartedAgents } from '@/components/parametres/ImportDepartedAgents'
 import { PostgresSettings } from '@/components/parametres/PostgresSettings'
+import { ApiKeysSettings } from '@/components/parametres/ApiKeysSettings'
 import { MagAppApp } from '@/types'
 import { RichTextEditor } from '@/components/common/RichTextEditor'
 
@@ -75,6 +76,7 @@ export default function ParametresPage() {
                 <TabsTrigger value="onboarding" className="gap-2"><FileText size={14} /> Onboarding</TabsTrigger>
                 <TabsTrigger value="mail" className="gap-2"><Mail size={14} /> Configuration Mails</TabsTrigger>
                 <TabsTrigger value="users" className="gap-2"><Users size={14} /> Utilisateurs & Rôles</TabsTrigger>
+                <TabsTrigger value="apikeys" className="gap-2"><Key size={14} /> Clés API</TabsTrigger>
               </TabsList>
 
               <div className="flex-1 w-full overflow-x-hidden">
@@ -122,6 +124,10 @@ export default function ParametresPage() {
 
                 <TabsContent value="users" className="m-0 p-8 w-full max-w-none animate-in fade-in duration-500">
                   <RolesAndUsers />
+                </TabsContent>
+
+                <TabsContent value="apikeys" className="m-0 p-8 w-full max-w-none animate-in fade-in duration-500">
+                  <ApiKeysSettings />
                 </TabsContent>
               </div>
             </Tabs>
