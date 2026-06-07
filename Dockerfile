@@ -29,11 +29,13 @@ COPY --from=builder /app/src/generated ./src/generated
 # Copy prisma and scripts directories for maintenance
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
+# Copy local.prisma outside /app/prisma (hidden by the rhstudio_data volume)
+COPY --from=builder /app/prisma/local.prisma ./local.prisma
 # Copy selective node_modules for prisma CLI to work in container
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 EXPOSE 3000
 ENV PORT 3000
-# Ensure database schema is up to date, then start the app
-CMD npx prisma db push --schema=prisma/local.prisma --skip-generate --accept-data-loss 2>&1; node server.js
+# Ensure database schema is up to date, then start the app (use copy outside volume)
+CMD npx prisma db push --schema=./local.prisma --skip-generate --accept-data-loss 2>&1; node server.js
