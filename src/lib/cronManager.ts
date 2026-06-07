@@ -2,8 +2,17 @@ import cron, { ScheduledTask } from 'node-cron'
 import { prisma, prismaLocal } from './db'
 import { runRhSync, runAdSync, runAzureSync, runBrutSync } from './sync'
 
+interface QueueItem {
+  jobId: number
+  type: string
+  name: string
+}
+
 class CronManager {
   private tasks: Map<number, ScheduledTask> = new Map()
+  private jobQueue: QueueItem[] = []
+  private isProcessing = false
+  private jobOrder: Map<number, number> = new Map()
 
   constructor() {
     console.log('[CRON] Initializing CronManager singleton...')
@@ -20,6 +29,33 @@ class CronManager {
       return `0 */${job.schedule} * * *`
     }
     return job.schedule
+  }
+
+  private async enqueueJob(jobId: number, type: string, name: string) {
+    console.log(`[CRON] Enqueuing job ${jobId} "${name}" (${type})`)
+    this.jobQueue.push({ jobId, type, name })
+    if (!this.isProcessing) {
+      await this.processQueue()
+    }
+  }
+
+  private async processQueue() {
+    if (this.isProcessing || this.jobQueue.length === 0) return
+    this.isProcessing = true
+
+    // Sort queue by display order (newest created_at first, matching the scheduler UI)
+    this.jobQueue.sort((a, b) => {
+      const aOrder = this.jobOrder.get(a.jobId) ?? 0
+      const bOrder = this.jobOrder.get(b.jobId) ?? 0
+      return aOrder - bOrder
+    })
+
+    while (this.jobQueue.length > 0) {
+      const item = this.jobQueue.shift()!
+      await this.executeJob(item.jobId, item.type)
+    }
+
+    this.isProcessing = false
   }
 
   private async executeJob(jobId: number, type: string) {
@@ -42,6 +78,7 @@ class CronManager {
         case 'azure':
           result = await runAzureSync()
           break
+        case 'brut':
         case 'mairie':
           result = await runBrutSync()
           break
@@ -69,10 +106,16 @@ class CronManager {
 
     this.tasks.forEach(task => task.stop())
     this.tasks.clear()
+    this.jobOrder.clear()
 
     try {
       const jobs = await prismaLocal.cronJob.findMany({
-        where: { is_active: true }
+        where: { is_active: true },
+        orderBy: { created_at: 'desc' },
+      })
+
+      jobs.forEach((job, index) => {
+        this.jobOrder.set(job.id, index)
       })
 
       for (const job of jobs) {
@@ -80,7 +123,7 @@ class CronManager {
         console.log(`[CRON] Scheduling job [${job.id}] ${job.name} with expression: ${expression}`)
 
         const task = cron.schedule(expression, () => {
-          this.executeJob(job.id, job.type)
+          this.enqueueJob(job.id, job.type, job.name)
         })
 
         this.tasks.set(job.id, task)

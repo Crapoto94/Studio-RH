@@ -99,6 +99,7 @@ export default function CronsPage() {
                   <option value="rh">Ressources Humaines (RH)</option>
                   <option value="ad">Active Directory (AD)</option>
                   <option value="azure">Azure AD (Office 365)</option>
+                  <option value="brut">Import complet (Brut)</option>
                   <option value="mairie">Base Noms (Mairie)</option>
                 </select>
               </div>
