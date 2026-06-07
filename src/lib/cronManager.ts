@@ -109,10 +109,18 @@ class CronManager {
     this.jobOrder.clear()
 
     try {
-      const jobs = await prismaLocal.cronJob.findMany({
-        where: { is_active: true },
-        orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
-      })
+      let jobs
+      try {
+        jobs = await prismaLocal.cronJob.findMany({
+          where: { is_active: true },
+          orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
+        })
+      } catch {
+        jobs = await prismaLocal.cronJob.findMany({
+          where: { is_active: true },
+          orderBy: { created_at: 'desc' },
+        })
+      }
 
       jobs.forEach((job, index) => {
         this.jobOrder.set(job.id, index)

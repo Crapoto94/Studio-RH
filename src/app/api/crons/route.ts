@@ -9,8 +9,16 @@ export async function GET() {
     })
     return NextResponse.json(crons)
   } catch (error) {
-    console.error('API Crons GET Error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    console.warn('API Crons GET Error (fallback to created_at):', (error as any)?.message)
+    try {
+      const crons = await prismaLocal.cronJob.findMany({
+        orderBy: { created_at: 'desc' },
+      })
+      return NextResponse.json(crons)
+    } catch (fallbackErr) {
+      console.error('API Crons GET Fallback Error:', fallbackErr)
+      return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    }
   }
 }
 
@@ -23,19 +31,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
-    const maxOrder = await prismaLocal.cronJob.aggregate({ _max: { sort_order: true } })
-    const nextOrder = (maxOrder._max.sort_order ?? -1) + 1
+    let nextOrder = 0
+    try {
+      const maxOrder = await prismaLocal.cronJob.aggregate({ _max: { sort_order: true } })
+      nextOrder = (maxOrder._max.sort_order ?? -1) + 1
+    } catch {
+      const count = await prismaLocal.cronJob.count()
+      nextOrder = count
+    }
 
-    const cron = await prismaLocal.cronJob.create({
-      data: {
-        name,
-        type,
-        schedule,
-        schedule_type,
-        sort_order: nextOrder,
-        is_active: true
-      }
-    })
+    const data: any = {
+      name,
+      type,
+      schedule,
+      schedule_type,
+      is_active: true
+    }
+    try { data.sort_order = nextOrder } catch {}
+
+    const cron = await prismaLocal.cronJob.create({ data })
 
     // Reload crons in memory
     cronManager.reload()

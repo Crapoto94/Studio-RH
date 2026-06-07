@@ -11,6 +11,17 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Missing id or newOrder' }, { status: 400 })
     }
 
+    // Check if sort_order column exists
+    let hasSortOrder = false
+    try {
+      await prismaLocal.cronJob.findFirst({ select: { sort_order: true } })
+      hasSortOrder = true
+    } catch {}
+
+    if (!hasSortOrder) {
+      return NextResponse.json({ error: 'sort_order non disponible, exécutez prisma db push' }, { status: 400 })
+    }
+
     const current = await prismaLocal.cronJob.findUnique({ where: { id: Number(id) } })
     if (!current) {
       return NextResponse.json({ error: 'Cron not found' }, { status: 404 })
