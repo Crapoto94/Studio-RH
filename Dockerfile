@@ -35,4 +35,5 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 EXPOSE 3000
 ENV PORT 3000
-CMD ["node", "server.js"]
+# Sync database schema on startup, then run the app
+CMD npx prisma db push --schema=prisma/local.prisma --skip-generate --accept-data-loss 2>&1; node server.js
