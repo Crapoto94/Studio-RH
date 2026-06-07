@@ -8,8 +8,35 @@ function isAdmin(session: any) {
   return session && (session.user as any)?.role === 'admin'
 }
 
+async function ensureApiKeyTable() {
+  try {
+    const tables = await prismaLocal.$queryRawUnsafe<{ name: string }[]>(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='API_KEYS'"
+    )
+    if (tables.length === 0) {
+      await prismaLocal.$executeRawUnsafe(`
+        CREATE TABLE "API_KEYS" (
+          "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+          "name" TEXT NOT NULL,
+          "key_hash" TEXT NOT NULL UNIQUE,
+          "key_prefix" TEXT NOT NULL,
+          "permissions" TEXT NOT NULL DEFAULT 'read',
+          "expires_at" DATETIME,
+          "is_active" INTEGER NOT NULL DEFAULT 1,
+          "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "created_by" TEXT NOT NULL
+        )
+      `)
+      console.log('[API-KEYS] Table API_KEYS créée automatiquement')
+    }
+  } catch (err: any) {
+    console.error('[API-KEYS] Erreur ensureApiKeyTable:', err?.message)
+  }
+}
+
 export async function GET() {
   try {
+    await ensureApiKeyTable()
     const session = await getServerSession(authOptions)
     if (!isAdmin(session)) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
@@ -38,6 +65,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureApiKeyTable()
     const session = await getServerSession(authOptions)
     if (!isAdmin(session)) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
@@ -73,13 +101,14 @@ export async function POST(req: NextRequest) {
       permissions: perms,
     })
   } catch (err: any) {
-    console.error(err)
-    return NextResponse.json({ error: 'Erreur interne' }, { status: 500 })
+    console.error('[API-KEYS] POST error:', err)
+    return NextResponse.json({ error: err?.message || 'Erreur interne' }, { status: 500 })
   }
 }
 
 export async function PUT(req: NextRequest) {
   try {
+    await ensureApiKeyTable()
     const session = await getServerSession(authOptions)
     if (!isAdmin(session)) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
@@ -122,6 +151,7 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    await ensureApiKeyTable()
     const session = await getServerSession(authOptions)
     if (!isAdmin(session)) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
