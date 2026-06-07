@@ -66,4 +66,18 @@ model Alignment {
   @@map("ALIGNMENTS")
 }
 
+model ApiKey {
+  id          Int       @id @default(autoincrement())
+  name        String
+  key_hash    String    @unique
+  key_prefix  String
+  permissions String    @default("read") // 'read' | 'read_write'
+  expires_at  DateTime?
+  is_active   Boolean   @default(true)
+  created_at  DateTime  @default(now())
+  created_by  String
+
+  @@map("API_KEYS")
+}
+
 

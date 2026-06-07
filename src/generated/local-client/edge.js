@@ -194,13 +194,14 @@ const config = {
     "rootEnvPath": null,
     "schemaEnvPath": "../../../.env"
   },
-  "relativePath": "",
+  "relativePath": "../../../prisma",
   "clientVersion": "5.14.0",
   "engineVersion": "e9771e62de70f79a5e1c604a2d7c8e2a0a874b48",
   "datasourceNames": [
     "db"
   ],
   "activeProvider": "sqlite",
+  "postinstall": false,
   "inlineDatasources": {
     "db": {
       "url": {
@@ -209,8 +210,8 @@ const config = {
       }
     }
   },
-  "inlineSchema": "generator client {\n  provider = \"prisma-client-js\"\n  output   = \"./\"\n}\n\ndatasource db {\n  provider = \"sqlite\"\n  url      = env(\"LOCAL_DATABASE_URL\")\n}\n\nmodel Parametre {\n  id     Int    @id @default(autoincrement())\n  cle    String @unique\n  valeur String\n\n  @@map(\"PARAMETRES\")\n}\n\nmodel AppRole {\n  id          Int      @id @default(autoincrement())\n  name        String   @unique\n  permissions String   @default(\"[]\")\n  created_at  DateTime @default(now())\n\n  @@map(\"ROLES\")\n}\n\nmodel AppUser {\n  id         Int      @id @default(autoincrement())\n  login      String   @unique\n  password   String\n  nom        String\n  prenom     String\n  role       String   @default(\"user\")\n  is_ad      Boolean  @default(false)\n  actif      Boolean  @default(true)\n  created_at DateTime @default(now())\n\n  @@map(\"USERS\")\n}\n\nmodel CronJob {\n  id            Int       @id @default(autoincrement())\n  name          String\n  type          String // 'rh', 'ad', 'azure', 'mairie'\n  schedule      String // ex: \"0 2 * * *\" or \"hourly\"\n  schedule_type String // 'daily', 'hourly', 'every_x_hours', 'custom' \n  is_active     Boolean   @default(true)\n  last_run      DateTime?\n  next_run      DateTime? // Calculé ou stocké pour info\n  created_at    DateTime  @default(now())\n  updated_at    DateTime  @updatedAt\n\n  @@map(\"CRON_JOBS\")\n}\n\nmodel Alignment {\n  id                Int      @id @default(autoincrement())\n  name              String\n  field_rh          String\n  field_ad          String\n  is_case_sensitive Boolean  @default(false)\n  created_at        DateTime @default(now())\n  updated_at        DateTime @updatedAt\n\n  @@map(\"ALIGNMENTS\")\n}\n\nmodel ApiKey {\n  id          Int       @id @default(autoincrement())\n  name        String\n  key_hash    String    @unique\n  key_prefix  String\n  permissions String    @default(\"read\") // 'read' | 'read_write'\n  expires_at  DateTime?\n  is_active   Boolean   @default(true)\n  created_at  DateTime  @default(now())\n  created_by  String\n\n  @@map(\"API_KEYS\")\n}\n",
-  "inlineSchemaHash": "df13020a09c6d6d411662efc69aac64745849ede5888c9fa6dbac85161e0de92",
+  "inlineSchema": "generator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated/local-client\"\n}\n\ndatasource db {\n  provider = \"sqlite\"\n  url      = env(\"LOCAL_DATABASE_URL\")\n}\n\nmodel Parametre {\n  id     Int    @id @default(autoincrement())\n  cle    String @unique\n  valeur String\n\n  @@map(\"PARAMETRES\")\n}\n\nmodel AppRole {\n  id          Int      @id @default(autoincrement())\n  name        String   @unique\n  permissions String   @default(\"[]\")\n  created_at  DateTime @default(now())\n\n  @@map(\"ROLES\")\n}\n\nmodel AppUser {\n  id         Int      @id @default(autoincrement())\n  login      String   @unique\n  password   String\n  nom        String\n  prenom     String\n  role       String   @default(\"user\")\n  is_ad      Boolean  @default(false)\n  actif      Boolean  @default(true)\n  created_at DateTime @default(now())\n\n  @@map(\"USERS\")\n}\n\nmodel CronJob {\n  id            Int       @id @default(autoincrement())\n  name          String\n  type          String // 'rh', 'ad', 'azure', 'mairie'\n  schedule      String // ex: \"0 2 * * *\" or \"hourly\"\n  schedule_type String // 'daily', 'hourly', 'every_x_hours', 'custom' \n  is_active     Boolean   @default(true)\n  last_run      DateTime?\n  next_run      DateTime? // Calculé ou stocké pour info\n  created_at    DateTime  @default(now())\n  updated_at    DateTime  @updatedAt\n\n  @@map(\"CRON_JOBS\")\n}\n\nmodel Alignment {\n  id                Int      @id @default(autoincrement())\n  name              String\n  field_rh          String\n  field_ad          String\n  is_case_sensitive Boolean  @default(false)\n  created_at        DateTime @default(now())\n  updated_at        DateTime @updatedAt\n\n  @@map(\"ALIGNMENTS\")\n}\n\nmodel ApiKey {\n  id          Int       @id @default(autoincrement())\n  name        String\n  key_hash    String    @unique\n  key_prefix  String\n  permissions String    @default(\"read\") // 'read' | 'read_write'\n  expires_at  DateTime?\n  is_active   Boolean   @default(true)\n  created_at  DateTime  @default(now())\n  created_by  String\n\n  @@map(\"API_KEYS\")\n}\n",
+  "inlineSchemaHash": "33de00bb1e2a25d19abf1fb3bd9003044d9faaba36b1c02024121ff758755cf9",
   "copyEngine": true
 }
 config.dirname = '/'
