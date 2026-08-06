@@ -26,9 +26,7 @@ export async function sendIvoryMail(options: IvoryMailOptions) {
 
   // Appel API Réel
   try {
-     // Désactiver TLS check pour api-dev.ivry.local (certificat auto-signé possible)
-     process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-     const res = await fetch('https://api-dev.ivry.local/api/v1/notifications', {
+      const res = await fetch('https://api.ivry.local/api/v1/notifications', {
         method: 'POST',
         headers: {
            'Content-Type': 'application/json',

@@ -1,9 +1,8 @@
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
-
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma, prismaLocal } from '@/lib/db'
+import { configureApiVilleTls, formatApiFetchError } from '@/lib/api-error'
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,9 +13,10 @@ export async function POST(req: NextRequest) {
 
     const params = await prismaLocal.parametre.findMany()
     const config = Object.fromEntries(params.map(p => [p.cle, p.valeur]))
+    configureApiVilleTls(config)
 
-    const apiUrl = config['API_ASTRE_URL'] || config['API_VILLE_URL']
-    const apiKey = config['API_ASTRE_KEY'] || config['API_VILLE_TOKEN']
+    const apiUrl = config['API_VILLE_URL'] || config['API_ASTRE_URL']
+    const apiKey = config['API_VILLE_TOKEN'] || config['API_ASTRE_KEY']
 
     if (!apiUrl) {
       return NextResponse.json({ ok: false, message: 'URL API non configurée' })
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       }
     } catch (e: any) {
       console.error('Fetch Test Astre Failed:', e)
-      return NextResponse.json({ ok: false, message: `Erreur lors de l'appel API: ${e.message} ${e.cause ? '(Cause: ' + e.cause.message + ')' : ''}` })
+      return NextResponse.json({ ok: false, message: `Erreur lors de l'appel API: ${formatApiFetchError(e)}` })
     }
 
   } catch (error) {

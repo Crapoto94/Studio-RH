@@ -1,5 +1,6 @@
 import { prisma, prismaLocal } from '@/lib/db'
 import { Client } from 'ldapts'
+import { configureApiVilleTls, formatApiFetchError } from '@/lib/api-error'
 
 type SyncResult = { success: boolean; message: string; stats?: any; errors?: string[] }
 
@@ -347,9 +348,11 @@ export async function runBrutSync(): Promise<SyncResult> {
 
   const params = await prismaLocal.parametre.findMany()
   const config = Object.fromEntries(params.map(p => [p.cle, p.valeur]))
+  configureApiVilleTls(config)
 
-  const apiUrl = config['API_ASTRE_URL'] || config['API_VILLE_URL']
-  const apiKey = config['API_ASTRE_KEY'] || config['API_VILLE_TOKEN']
+  // API Ville is the current setting; keep ASTRE only as a legacy fallback.
+  const apiUrl = config['API_VILLE_URL'] || config['API_ASTRE_URL']
+  const apiKey = config['API_VILLE_TOKEN'] || config['API_ASTRE_KEY']
   const rhViewName = config['SQL_VIEW_RH'] || 'V_AGENT_RH_FULL'
   let hierViewName = config['SQL_VIEW_HIER'] || 'rh_siim_organigramme_v2'
   // Auto-upgrade from old table name
@@ -436,8 +439,9 @@ export async function runBrutSync(): Promise<SyncResult> {
         await updateProgress(26, `[RH] ✗ Erreur HTTP ${resRh.status}`)
       }
     } catch (e: any) {
-      stats.errors.push(`RH Exception: ${e.message}`)
-      await updateProgress(26, `[RH] ✗ Exception: ${e.message.slice(0, 100)}`)
+      const errorMessage = formatApiFetchError(e)
+      stats.errors.push(`RH Exception: ${errorMessage}`)
+      await updateProgress(26, `[RH] ✗ Exception: ${errorMessage.slice(0, 100)}`)
     }
   } else {
     await updateProgress(26, `[RH] ⚠ Ignoré (API_URL=${apiUrl ? 'ok' : 'manquant'}, VUE=${rhViewName || 'manquant'})`)
@@ -502,8 +506,9 @@ export async function runBrutSync(): Promise<SyncResult> {
         await updateProgress(40, `[HIER] ✗ Erreur HTTP ${resHier.status}`)
       }
     } catch (e: any) {
-      stats.errors.push(`HIER Exception: ${e.message}`)
-      await updateProgress(40, `[HIER] ✗ Exception: ${e.message.slice(0, 100)}`)
+      const errorMessage = formatApiFetchError(e)
+      stats.errors.push(`HIER Exception: ${errorMessage}`)
+      await updateProgress(40, `[HIER] ✗ Exception: ${errorMessage.slice(0, 100)}`)
     }
   } else {
     await updateProgress(40, `[HIER] ⚠ Ignoré (VUE=${hierViewName || 'manquant'})`)

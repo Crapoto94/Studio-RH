@@ -1,5 +1,3 @@
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
-
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -47,8 +45,8 @@ export async function GET(req: NextRequest) {
     const params = await prismaLocal.parametre.findMany()
     const config = Object.fromEntries(params.map(p => [p.cle, p.valeur]))
 
-    const apiUrl = config['API_ASTRE_URL'] || config['API_VILLE_URL']
-    const apiKey = config['API_ASTRE_KEY'] || config['API_VILLE_TOKEN']
+      const apiUrl = config['API_VILLE_URL'] || config['API_ASTRE_URL']
+      const apiKey = config['API_VILLE_TOKEN'] || config['API_ASTRE_KEY']
 
     const mockViews = type === 'rh'
       ? ['V_AGENT_RH_FULL', 'V_AGENT_CONTRATS', 'V_AGENT_COORDONNEES']

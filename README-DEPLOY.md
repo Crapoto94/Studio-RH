@@ -44,12 +44,17 @@ AZURE_CLIENT_ID=VOTRE_CLIENT_ID
 AZURE_CLIENT_SECRET=VOTRE_CLIENT_SECRET
 
 # API Ville (RH Oracle)
-API_VILLE_URL=https://api-dev.ivry.local
+API_VILLE_URL=https://api.ivry.local/api
 API_VILLE_TOKEN=VOTRE_TOKEN_API
 API_VILLE_VUE=V_AGENTS
 
+# Si l'API utilise une AC interne ou un certificat auto-signé, fournir le
+# certificat de l'AC (pas le certificat serveur seul) à Node.js :
+# NODE_EXTRA_CA_CERTS=/chemin/vers/ca-api-ville.pem
+# Bypass temporaire (à éviter en production) : API_VILLE_TLS_INSECURE=true
+
 # Mail
-MAIL_API_URL=https://api-dev.ivry.local/api/mail
+MAIL_API_URL=https://api.ivry.local/api/mail
 EOF
 ```
 

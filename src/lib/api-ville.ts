@@ -1,5 +1,6 @@
 import { prisma, prismaLocal } from './db';
 import { randomUUID } from 'crypto';
+import { configureApiVilleTls } from './api-error';
 
 interface EmailOptions {
   to: string;
@@ -28,8 +29,9 @@ export async function sendEmailWithTemplate(options: EmailOptions): Promise<bool
     });
 
     const config = Object.fromEntries(params.map(p => [p.cle, p.valeur]));
+    configureApiVilleTls(config);
     
-    let apiUrl = config['API_VILLE_URL'] || process.env.API_VILLE_URL || 'https://api-dev.ivry.local/api';
+    let apiUrl = config['API_VILLE_URL'] || process.env.API_VILLE_URL || 'https://api.ivry.local/api';
     const apiToken = config['API_VILLE_TOKEN'] || process.env.API_VILLE_TOKEN;
     const globalTemplate = config['MAIL_TEMPLATE_HTML'] || '<html><body>{{CONTENT}}</body></html>';
     const senderName = config['MAIL_SENDER_NAME'] || 'RH Studio';
@@ -71,8 +73,6 @@ export async function sendEmailWithTemplate(options: EmailOptions): Promise<bool
     
     console.log(`[API-VILLE-DEBUG] Tentative envoi à ${options.to} via ${endpoint}`);
     
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
     const payload = {
       to: options.to,
       subject: options.subject,

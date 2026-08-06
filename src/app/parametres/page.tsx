@@ -372,9 +372,9 @@ function ApiTab() {
   const [testMsg, setTestMsg] = useState('')
 
   const fields = [
-    { label: 'URL API Ville', key: 'API_VILLE_URL', placeholder: 'https://api-dev.ivry.local/api' },
+    { label: 'URL API Ville', key: 'API_VILLE_URL', placeholder: 'https://api.ivry.local/api' },
     { label: 'TOKEN API Ville', key: 'API_VILLE_TOKEN', type: 'password' },
-    { label: 'URL Documentation API', key: 'API_SMS_URL', placeholder: 'https://api-dev.ivry.local/api-docs' },
+    { label: 'URL Documentation API', key: 'API_SMS_URL', placeholder: 'https://api.ivry.local/api-docs' },
   ]
 
   const getValue = (key: string) => key in form ? form[key] : (params[key] ?? '')
