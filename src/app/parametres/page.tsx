@@ -17,6 +17,7 @@ import { RolesAndUsers } from '@/components/parametres/RolesAndUsers'
 import { ImportDepartedAgents } from '@/components/parametres/ImportDepartedAgents'
 import { PostgresSettings } from '@/components/parametres/PostgresSettings'
 import { ApiKeysSettings } from '@/components/parametres/ApiKeysSettings'
+import { Switch } from '@/components/ui/switch'
 import { MagAppApp } from '@/types'
 import { RichTextEditor } from '@/components/common/RichTextEditor'
 
@@ -154,7 +155,9 @@ function AdSection() {
   ]
 
   const getValue = (key: string) => key in form ? form[key] : (params[key] ?? '')
+  const tlsBypassEnabled = getValue('API_VILLE_TLS_INSECURE').toLowerCase() === 'true'
   const isDirty = fields.some(f => f.key in form && form[f.key] !== (params[f.key] ?? ''))
+    || ('API_VILLE_TLS_INSECURE' in form && form.API_VILLE_TLS_INSECURE !== (params.API_VILLE_TLS_INSECURE ?? ''))
 
   const saveAll = useMutation({
     mutationFn: async () => {
@@ -207,6 +210,17 @@ function AdSection() {
             onChange={v => setForm(prev => ({ ...prev, [f.key]: v }))}
             placeholder={f.placeholder} type={f.type} />
         ))}
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Bypass de vérification TLS</p>
+            <p className="text-xs text-amber-800">À activer uniquement si le certificat auto-signé ne peut pas être installé.</p>
+          </div>
+          <Switch
+            aria-label="Bypass de vérification TLS"
+            checked={tlsBypassEnabled}
+            onCheckedChange={checked => setForm(prev => ({ ...prev, API_VILLE_TLS_INSECURE: String(checked) }))}
+          />
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-slate-200">
