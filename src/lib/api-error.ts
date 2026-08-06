@@ -20,7 +20,8 @@ export function formatApiFetchError(error: unknown): string {
 
 /** Enable the explicitly configured development bypass for the API Ville only. */
 export function configureApiVilleTls(config: Record<string, string | undefined>): void {
-  if (config.API_VILLE_TLS_INSECURE?.toLowerCase() === 'true') {
+  const insecure = config.API_VILLE_TLS_INSECURE || process.env.API_VILLE_TLS_INSECURE
+  if (insecure?.toLowerCase() === 'true') {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
     console.warn('[API-VILLE] TLS certificate verification bypassed by API_VILLE_TLS_INSECURE=true')
   }
