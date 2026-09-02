@@ -57,11 +57,12 @@ export async function GET(req: NextRequest) {
           ...(activePositions.length > 0 ? { position_l: { in: activePositions } } : {})
         } 
       }),
-      // Nouveaux agents (-30j)
+      // Nouveaux agents (-30j) — vraie premiere arrivee, pas le debut du
+      // contrat/poste courant (sinon un renouvellement de contrat compte a tort)
       prisma.refAgent.count({
         where: {
           ...whereBase,
-          date_arrivee: { gte: thirtyDaysAgo, lte: now },
+          date_premiere_arrivee: { gte: thirtyDaysAgo, lte: now },
           actif: true,
           OR: [
             { date_depart: null, plus_vu: null },
@@ -89,11 +90,11 @@ export async function GET(req: NextRequest) {
           ]
         }
       }),
-      // Futurs agents
+      // Futurs agents — idem, vraie premiere arrivee
       prisma.refAgent.count({
         where: {
           ...whereBase,
-          date_arrivee: { gt: now },
+          date_premiere_arrivee: { gt: now },
           actif: true,
           OR: [
             { date_depart: null, plus_vu: null },

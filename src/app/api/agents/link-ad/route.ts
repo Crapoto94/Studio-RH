@@ -76,11 +76,16 @@ export async function POST(req: NextRequest) {
 
     await prisma.refAgent.update({
       where: { id: agentId },
-      data: { 
+      data: {
         ad_id: adId || null,
         azure_id: azureId,
         licence: licence,
-        mail: mail || undefined
+        // Explicitement `null` (et non `undefined`) : `mail` doit toujours
+        // refléter le compte AD/Azure actuellement lié, jamais une valeur
+        // laissée par un ancien lien. `undefined` ferait ignorer ce champ
+        // par Prisma et laisserait un email périmé en base après un
+        // "Détacher le compte principal" (cf. ZRAIDI Samira / 0017743).
+        mail: mail
       }
     })
 

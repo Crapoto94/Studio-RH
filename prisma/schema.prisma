@@ -143,6 +143,11 @@ model RefAgent {
   code_dg_cab        String?
   nom_dg_cab_l       String?
   date_arrivee       DateTime?
+  // Vraie premiere arrivee de l'agent dans la collectivite : renseignee une
+  // seule fois a la creation de la fiche, jamais reecrite ensuite (contrairement
+  // a date_arrivee qui reflete le debut du contrat/poste courant et est
+  // ecrasee a chaque synchro Oracle - ex. renouvellement de contrat).
+  date_premiere_arrivee DateTime?
   date_depart        DateTime?
   plus_vu            DateTime?
   ad_id              String?

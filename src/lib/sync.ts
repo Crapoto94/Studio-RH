@@ -59,6 +59,18 @@ export async function runRhSync(): Promise<SyncResult> {
     }
 
     try {
+      const dateArriveeContrat = brut.DATE_ARRIVEE ? new Date(brut.DATE_ARRIVEE) : null
+
+      // date_premiere_arrivee : la vraie premiere arrivee dans la collectivite.
+      // - Nouvel agent : initialisee a la date d'arrivee observee aujourd'hui
+      //   (meilleure valeur disponible).
+      // - Agent existant : jamais reecrite (contrairement a date_arrivee qui
+      //   reflete le contrat/poste courant et change a chaque renouvellement),
+      //   sauf rattrapage ponctuel si elle n'a encore jamais ete renseignee.
+      const datePremiereArrivee = existingAgent
+        ? (existingAgent.date_premiere_arrivee ?? dateArriveeContrat)
+        : dateArriveeContrat
+
       const agentData = {
         nom: brut.NOM || 'Inconnu',
         prenom: brut.PRENOM || 'Inconnu',
@@ -73,7 +85,8 @@ export async function runRhSync(): Promise<SyncResult> {
         nom_dg_cab_l: brut.DG_CAB_L || '',
         fonction_l: brut.FONCTION_L || '',
         poste_l: brut.POSTE_L || '',
-        date_arrivee: brut.DATE_ARRIVEE ? new Date(brut.DATE_ARRIVEE) : null,
+        date_arrivee: dateArriveeContrat,
+        date_premiere_arrivee: datePremiereArrivee,
         date_depart: brut.DATE_DEPART ? new Date(brut.DATE_DEPART) : null,
         plus_vu: null,
         mobile: mobile,

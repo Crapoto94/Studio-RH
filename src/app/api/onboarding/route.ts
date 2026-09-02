@@ -18,12 +18,16 @@ export async function GET(req: NextRequest) {
     const thresholdDate = new Date()
     thresholdDate.setDate(thresholdDate.getDate() + futurDays)
 
+    // NB: on se base sur date_premiere_arrivee (vraie premiere arrivee dans la
+    // collectivite, jamais reecrite ensuite) et non date_arrivee (debut du
+    // contrat/poste courant, qui change a chaque renouvellement de contrat et
+    // ferait sinon detecter a tort des agents deja en poste comme "nouveaux").
     if (mode === 'futurs') {
       const onboarded = await prisma.onboarding.findMany({ where: { NOT: { agent_id: null } }, select: { agent_id: true } })
       const onboardedIds = onboarded.map(o => o.agent_id as number).filter(Boolean)
       const futurs = await prisma.refAgent.findMany({
-        where: { id: { notIn: onboardedIds }, date_arrivee: { gte: new Date(), lte: thresholdDate } },
-        orderBy: { date_arrivee: 'asc' }
+        where: { id: { notIn: onboardedIds }, date_premiere_arrivee: { gte: new Date(), lte: thresholdDate } },
+        orderBy: { date_premiere_arrivee: 'asc' }
       })
       return NextResponse.json(futurs)
     }
@@ -32,7 +36,7 @@ export async function GET(req: NextRequest) {
     const activeOnboardings = await prisma.onboarding.findMany({ where: { NOT: { agent_id: null } }, select: { agent_id: true } })
     const excludedIds = activeOnboardings.map(o => o.agent_id as number).filter(Boolean)
     const detected = await prisma.refAgent.findMany({
-      where: { id: { notIn: excludedIds }, date_arrivee: { gte: new Date(), lte: thresholdDate } }
+      where: { id: { notIn: excludedIds }, date_premiere_arrivee: { gte: new Date(), lte: thresholdDate } }
     })
 
     for (const fAgent of detected) {
@@ -40,7 +44,7 @@ export async function GET(req: NextRequest) {
         data: {
           agent_id: fAgent.id,
           statut: 'a_faire',
-          date_arrivee_prevue: fAgent.date_arrivee,
+          date_arrivee_prevue: fAgent.date_premiere_arrivee,
           nom_temp: fAgent.nom,
           prenom_temp: fAgent.prenom
         }
