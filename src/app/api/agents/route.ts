@@ -55,7 +55,10 @@ export async function GET(req: NextRequest) {
     if (query.statut) conditions.push({ position_l: { contains: query.statut, mode: 'insensitive' } })
     if (query.position) conditions.push({ position_l: { equals: query.position } })
 
-    // Filtres de dates d'arrivée
+    // Filtres de dates d'arrivée — basés sur date_premiere_arrivee (vraie
+    // premiere arrivee dans la collectivite), comme les compteurs dashboard et
+    // la detection d'onboarding : ce sont les boutons "Nouveaux"/"Futurs" qui
+    // alimentent ces parametres, pas un filtre generique sur le contrat courant.
     if (query.dateArriveeMin || query.dateArriveeMax) {
       const arriveeCond: any = {}
       if (query.dateArriveeMin) arriveeCond.gte = new Date(query.dateArriveeMin)
@@ -65,7 +68,7 @@ export async function GET(req: NextRequest) {
         else d.setFullYear(2099, 11, 31)
         arriveeCond.lte = d
       }
-      conditions.push({ date_arrivee: arriveeCond })
+      conditions.push({ date_premiere_arrivee: arriveeCond })
     }
 
       // Filtres de dates de départ (Basé sur plus_vu OU date_depart selon la règle utilisateur)
