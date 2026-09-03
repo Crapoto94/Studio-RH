@@ -4,11 +4,26 @@ import { authOptions } from '@/lib/auth'
 import { prisma, prismaLocal } from '@/lib/db'
 import { randomUUID } from 'crypto'
 import { notifyManager } from '@/lib/onboarding'
+import { authenticateApiRequest } from '@/lib/api-auth'
+
+// Accepte soit une clé API (x-api-key, permission 'read'), soit une session
+// NextAuth — même pattern que /api/agents/presence. Utilisé par AppDSI pour
+// GET ?mode=futurs (liste des futurs agents, cf. formulaire de demande
+// "Arrivée d'agent" côté DSI Hub).
+async function checkReadAuth(req: NextRequest) {
+  const apiKey = req.headers.get('x-api-key')
+  if (apiKey) {
+    const authResult = await authenticateApiRequest(req, 'read')
+    return authResult.authorized ? null : NextResponse.json({ error: authResult.error }, { status: 401 })
+  }
+  const session = await getServerSession(authOptions)
+  return session ? null : NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+}
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+    const authError = await checkReadAuth(req)
+    if (authError) return authError
 
     const { searchParams } = new URL(req.url)
     const mode = searchParams.get('mode')
@@ -64,11 +79,18 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+    // Clé API (permission read_write, ex. AppDSI) OU session NextAuth.
+    const apiKey = req.headers.get('x-api-key')
+    if (apiKey) {
+      const authResult = await authenticateApiRequest(req, 'read_write')
+      if (!authResult.authorized) return NextResponse.json({ error: authResult.error }, { status: 401 })
+    } else {
+      const session = await getServerSession(authOptions)
+      if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+    }
 
     const body = await req.json()
-    const { agent_id, manager_id, date_arrivee_prevue, nom_temp, prenom_temp, direction_temp, service_temp, poste_temp } = body
+    const { agent_id, manager_id, date_arrivee_prevue, nom_temp, prenom_temp, direction_temp, service_temp, poste_temp, dsihub_ticket_id } = body
 
     if (!manager_id) return NextResponse.json({ error: 'Manager obligatoire' }, { status: 400 })
 
@@ -83,7 +105,8 @@ export async function POST(req: NextRequest) {
         poste_temp,
         statut: 'en_cours_demande',
         token_formulaire: randomUUID(),
-        date_arrivee_prevue: date_arrivee_prevue ? new Date(date_arrivee_prevue) : null
+        date_arrivee_prevue: date_arrivee_prevue ? new Date(date_arrivee_prevue) : null,
+        dsihub_ticket_id: dsihub_ticket_id || null
       }
     })
 

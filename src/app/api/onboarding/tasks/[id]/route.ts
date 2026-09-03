@@ -3,14 +3,23 @@ import { prisma } from '@/lib/db'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { notifyManagerCompletion } from '@/lib/onboarding'
+import { authenticateApiRequest } from '@/lib/api-auth'
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Clé API (permission read_write — AppDSI acquittant une tâche DSI Hub
+    // terminée) OU session NextAuth.
+    const apiKey = req.headers.get('x-api-key')
+    if (apiKey) {
+      const authResult = await authenticateApiRequest(req, 'read_write')
+      if (!authResult.authorized) return NextResponse.json({ error: authResult.error }, { status: 401 })
+    } else {
+      const session = await getServerSession(authOptions)
+      if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { id: idParam } = await params
     const id = parseInt(idParam)

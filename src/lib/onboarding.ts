@@ -4,6 +4,53 @@ import { generateOnboardingPDF } from './pdf'
 import { randomUUID } from 'crypto'
 
 /**
+ * Pousse une tâche d'onboarding marquée "Tâche DSI Hub" (recipient_type =
+ * 'dsihub') vers AppDSI, rattachée au ticket qui a déclenché cet onboarding
+ * (Onboarding.dsihub_ticket_id) et affectée au groupe technicien choisi lors
+ * du paramétrage du workflow (item.dsihubGroupId). Renvoie l'id de la tâche
+ * DSI Hub créée (à stocker dans OnboardingTask.dsihub_task_id pour permettre
+ * le rappel d'acquittement automatique), ou null si l'appel échoue — best
+ * effort, ne doit jamais faire échouer la génération des tâches d'onboarding.
+ */
+export async function pushTaskToDsihub(params: {
+  dsihubTicketId: number
+  groupId: number
+  description: string
+  rhStudioTaskId: number
+}): Promise<number | null> {
+  try {
+    const urlParam = await prismaLocal.parametre.findUnique({ where: { cle: 'DSIHUB_API_URL' } })
+    const keyParam = await prismaLocal.parametre.findUnique({ where: { cle: 'DSIHUB_API_KEY' } })
+    const baseUrl = urlParam?.valeur || 'http://10.103.130.106:3001/api'
+    const apiKey = keyParam?.valeur
+    if (!apiKey) {
+      console.error('[ONBOARDING-DSIHUB-PUSH] DSIHUB_API_KEY non configurée (/parametres)')
+      return null
+    }
+
+    const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/tasks/external/rh-studio`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+      body: JSON.stringify({
+        ticket_id: params.dsihubTicketId,
+        group_id: params.groupId,
+        description: params.description,
+        rh_studio_task_id: params.rhStudioTaskId,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      console.error('[ONBOARDING-DSIHUB-PUSH] échec', res.status, data)
+      return null
+    }
+    return data.id ?? null
+  } catch (e: any) {
+    console.error('[ONBOARDING-DSIHUB-PUSH-ERROR]', e.message)
+    return null
+  }
+}
+
+/**
  * Invitation initiale au manager pour remplir le formulaire
  */
 export async function notifyManager(onboarding: any, managerId: number, origin: string) {

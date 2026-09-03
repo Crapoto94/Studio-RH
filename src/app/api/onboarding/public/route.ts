@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma, prismaLocal } from '@/lib/db'
 import { randomUUID } from 'crypto'
 import { sendEmailWithTemplate } from '@/lib/api-ville'
-import { notifyManagerSubmission } from '@/lib/onboarding'
+import { notifyManagerSubmission, pushTaskToDsihub } from '@/lib/onboarding'
 
 // GET: Récupère les infos pour le formulaire manager via son token
 export async function GET(req: NextRequest) {
@@ -266,31 +266,55 @@ export async function POST(req: NextRequest) {
           for (const item of workflow) {
             const taskToken = randomUUID()
             const taskName = item.task || item.label || item.titre || 'Tâche'
-            
-            await (prisma.onboardingTask as any).create({
+            // 'dsihub' : tâche affectée à un groupe DSI Hub (pas d'email, pas
+            // de lien d'acquittement public — acquittement automatique quand
+            // la tâche DSI Hub miroir est terminée, cf. pushTaskToDsihub).
+            // 'email' (défaut, comportement historique) : tâche autonome,
+            // notifiée par email avec lien d'acquittement public.
+            const recipientType = item.recipientType === 'dsihub' ? 'dsihub' : 'email'
+
+            const createdTask = await (prisma.onboardingTask as any).create({
               data: {
                 onboarding_id: onboarding.id,
                 titre: taskName,
-                responsable_mail: item.email || null,
+                responsable_mail: recipientType === 'email' ? (item.email || null) : null,
                 delay_days: parseInt(item.delay || '0') || 0,
                 task_token: taskToken,
-                done: false
+                done: false,
+                recipient_type: recipientType,
+                dsihub_group_id: recipientType === 'dsihub' ? (item.dsihubGroupId || null) : null,
               }
             })
 
-            // Email au responsable
-            if (item.email) {
-              await sendEmailWithTemplate({
-                to: item.email,
-                subject: `📦 Nouvelle tâche Onboarding : ${taskName}`,
-                body: bodyTemplate,
-                onboarding_id: onboarding.id,
-                variables: {
-                  AGENT_NOM: agentName,
-                  TASK_NAME: taskName,
-                  VAL_URL: `${publicUrl}/onboarding/task/acknowledge?token=${taskToken}`
-                }
-              }).catch(e => console.error(`[ONBOARDING-PUBLIC-ERROR] Mail fail to ${item.email}`, e))
+            if (recipientType === 'email') {
+              if (item.email) {
+                await sendEmailWithTemplate({
+                  to: item.email,
+                  subject: `📦 Nouvelle tâche Onboarding : ${taskName}`,
+                  body: bodyTemplate,
+                  onboarding_id: onboarding.id,
+                  variables: {
+                    AGENT_NOM: agentName,
+                    TASK_NAME: taskName,
+                    VAL_URL: `${publicUrl}/onboarding/task/acknowledge?token=${taskToken}`
+                  }
+                }).catch(e => console.error(`[ONBOARDING-PUBLIC-ERROR] Mail fail to ${item.email}`, e))
+              }
+            } else if (item.dsihubGroupId && onboarding.dsihub_ticket_id) {
+              const dsihubTaskId = await pushTaskToDsihub({
+                dsihubTicketId: onboarding.dsihub_ticket_id,
+                groupId: item.dsihubGroupId,
+                description: taskName,
+                rhStudioTaskId: createdTask.id,
+              })
+              if (dsihubTaskId) {
+                await (prisma.onboardingTask as any).update({
+                  where: { id: createdTask.id },
+                  data: { dsihub_task_id: dsihubTaskId }
+                })
+              }
+            } else if (recipientType === 'dsihub') {
+              console.warn(`[ONBOARDING-PUBLIC] Tâche "${taskName}" marquée DSI Hub mais groupe ou ticket manquant (onboarding #${onboarding.id}) — non poussée.`)
             }
           }
         }

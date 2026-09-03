@@ -218,6 +218,10 @@ model Onboarding {
   direction_temp      String?
   poste_temp          String?
   service_temp        String?
+  // ID du ticket DSI Hub créé par le formulaire de demande "Arrivée d'agent"
+  // qui a déclenché cet onboarding (AppDSI hub_tickets.tickets.glpi_id) —
+  // utilisé pour rattacher les tâches de type "Tâche DSI Hub" au bon ticket.
+  dsihub_ticket_id    Int?
   manager             RefAgent?        @relation("OnboardingManager", fields: [manager_id], references: [id])
   agent               RefAgent?        @relation("OnboardingAgent", fields: [agent_id], references: [id])
   tasks               OnboardingTask[]
@@ -235,6 +239,17 @@ model OnboardingTask {
   task_token       String?    @unique
   date_completion  DateTime?
   commentaire      String?
+  // Destinataire de la tâche : 'email' (comportement historique, lien
+  // d'acquittement public envoyé à responsable_mail) ou 'dsihub' (tâche
+  // poussée dans DSI Hub, affectée au groupe dsihub_group_id).
+  recipient_type   String     @default("email")
+  // ID du groupe technicien DSI Hub (AppDSI hub_tickets.technician_groups.id)
+  // auquel affecter la tâche quand recipient_type = 'dsihub'.
+  dsihub_group_id  Int?
+  // ID de la tâche DSI Hub créée en retour (AppDSI hub.user_tasks.id), une
+  // fois poussée — permet à AppDSI de rappeler cette route pour acquitter
+  // automatiquement la tâche ici quand la tâche DSI Hub est terminée.
+  dsihub_task_id   Int?
   onboarding       Onboarding @relation(fields: [onboarding_id], references: [id], onDelete: Cascade)
 
   @@map("ONBOARDING_TASKS")

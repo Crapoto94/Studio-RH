@@ -989,13 +989,25 @@ function DsihubSection() {
 
       <div className="space-y-4">
         <div className="max-w-2xl">
-          <SimpleInput 
-            label="URL API DSIHub" 
-            dbKey="DSIHUB_API_URL" 
-            placeholder="http://10.103.130.106:3001/api" 
+          <SimpleInput
+            label="URL API DSIHub"
+            dbKey="DSIHUB_API_URL"
+            placeholder="http://10.103.130.106:3001/api"
           />
           <p className="text-[10px] text-slate-400 mt-1 ml-0 sm:ml-60">
             L'URL du backend AppDSI pour lister les applications MagApp.
+          </p>
+        </div>
+        <div className="max-w-2xl">
+          <SimpleInput
+            label="Clé API DSIHub"
+            dbKey="DSIHUB_API_KEY"
+            type="password"
+            placeholder="dsk_..."
+          />
+          <p className="text-[10px] text-slate-400 mt-1 ml-0 sm:ml-60">
+            Clé API DSI Hub (scope "tasks", permission lecture/écriture) — générée dans AppDSI sous /admin/api-keys.
+            Nécessaire pour lister les groupes DSI Hub et pousser les tâches d'onboarding de type "Tâche DSI Hub".
           </p>
         </div>
 
