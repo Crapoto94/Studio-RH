@@ -20,10 +20,15 @@ export async function sendEmailWithTemplate(options: EmailOptions): Promise<bool
   
   try {
     // 1. Récupération des paramètres par CLÉS
+    // NB : API_VILLE_TLS_INSECURE doit être dans cette liste — configureApiVilleTls()
+    // ci-dessous ne lit que ce `config`, jamais la table directement. Son absence ici
+    // rendait le bypass TLS (pourtant configuré à true) totalement inopérant : le
+    // certificat auto-signé de api.ivry.local était alors rejeté à chaque envoi
+    // (DEPTH_ZERO_SELF_SIGNED_CERT, remonté en "fetch failed" générique).
     const params = await prismaLocal.parametre.findMany({
       where: {
         cle: {
-          in: ['API_VILLE_URL', 'API_VILLE_TOKEN', 'MAIL_TEMPLATE_HTML', 'MAIL_SENDER_NAME', 'MAIL_SENDER_EMAIL']
+          in: ['API_VILLE_URL', 'API_VILLE_TOKEN', 'MAIL_TEMPLATE_HTML', 'MAIL_SENDER_NAME', 'MAIL_SENDER_EMAIL', 'API_VILLE_TLS_INSECURE']
         }
       }
     });
