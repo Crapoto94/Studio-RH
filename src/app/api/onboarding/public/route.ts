@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma, prismaLocal } from '@/lib/db'
 import { randomUUID } from 'crypto'
 import { sendEmailWithTemplate } from '@/lib/api-ville'
-import { notifyManagerSubmission, pushTaskToDsihub } from '@/lib/onboarding'
+import { notifyManagerSubmission, pushTaskToDsihub, markDsihubTicketInProgress } from '@/lib/onboarding'
 
 // GET: Récupère les infos pour le formulaire manager via son token
 export async function GET(req: NextRequest) {
@@ -242,6 +242,13 @@ export async function POST(req: NextRequest) {
       },
       include: { agent: true }
     })
+
+    // 1bis. Le ticket AppDSI "Arrivée d'agent" (En attente depuis sa création
+    // côté AppDSI) passe "En cours" — le manager a fait sa part, la hot-line
+    // peut traiter la suite. Best effort, ne bloque jamais la soumission.
+    if (onboarding.dsihub_ticket_id) {
+      markDsihubTicketInProgress(onboarding.dsihub_ticket_id).catch(() => {})
+    }
 
     // 2. Génération des tâches via Workflow
     const configParam = await prismaLocal.parametre.findUnique({

@@ -51,6 +51,37 @@ export async function pushTaskToDsihub(params: {
 }
 
 /**
+ * Signale à AppDSI que le manager a rempli le formulaire d'arrivée : le
+ * ticket "Arrivée d'agent" (En attente depuis sa création, cf.
+ * triggerOnboardingRhStudio côté AppDSI) passe "En cours". Best effort, comme
+ * pushTaskToDsihub ci-dessus — ne doit jamais faire échouer la soumission du
+ * formulaire manager.
+ */
+export async function markDsihubTicketInProgress(dsihubTicketId: number): Promise<void> {
+  try {
+    const urlParam = await prismaLocal.parametre.findUnique({ where: { cle: 'DSIHUB_API_URL' } })
+    const keyParam = await prismaLocal.parametre.findUnique({ where: { cle: 'DSIHUB_API_KEY' } })
+    const baseUrl = urlParam?.valeur || 'http://10.103.130.106:3001/api'
+    const apiKey = keyParam?.valeur
+    if (!apiKey) {
+      console.error('[ONBOARDING-DSIHUB-STATUS] DSIHUB_API_KEY non configurée (/parametres)')
+      return
+    }
+    const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/tasks/external/rh-studio/onboarding-started`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+      body: JSON.stringify({ ticket_id: dsihubTicketId }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      console.error('[ONBOARDING-DSIHUB-STATUS] échec', res.status, data)
+    }
+  } catch (e: any) {
+    console.error('[ONBOARDING-DSIHUB-STATUS-ERROR]', e.message)
+  }
+}
+
+/**
  * Invitation initiale au manager pour remplir le formulaire
  */
 export async function notifyManager(onboarding: any, managerId: number, origin: string) {
