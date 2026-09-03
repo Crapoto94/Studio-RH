@@ -169,4 +169,7 @@ export interface MagAppApp {
   present_magapp?: string
   present_onboard?: string
   email_createur?: string
+  // Résolu côté Studio-RH (RefAgent.mail) à partir de email_createur — non
+  // stocké dans AppDSI, cf. src/app/api/dsihub/apps/route.ts.
+  createur_nom?: string | null
 }

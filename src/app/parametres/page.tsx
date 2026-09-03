@@ -1033,6 +1033,7 @@ function DsihubSection() {
                   <th className="px-4 py-3 text-left">Nom</th>
                   <th className="px-4 py-3 text-left">Description</th>
                   <th className="px-4 py-3 text-left">URL</th>
+                  <th className="px-4 py-3 text-left">Créateur de compte</th>
                   <th className="px-4 py-3 text-center">MagApp</th>
                 </tr>
               </thead>
@@ -1042,6 +1043,16 @@ function DsihubSection() {
                     <td className="px-4 py-3 font-bold text-slate-700">{app.name}</td>
                     <td className="px-4 py-3 text-slate-500 max-w-[300px] truncate" title={app.description}>{app.description}</td>
                     <td className="px-4 py-3 font-mono text-[11px] text-indigo-600 truncate max-w-[200px]">{app.url}</td>
+                    <td className="px-4 py-3 text-slate-600 max-w-[220px]">
+                      {app.email_createur ? (
+                        <div className="truncate" title={app.email_createur}>
+                          {app.createur_nom && <span className="font-bold text-slate-700">{app.createur_nom}</span>}
+                          <span className={app.createur_nom ? 'block text-[10px] text-slate-400' : 'text-xs'}>{app.email_createur}</span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-300 italic text-xs">Non renseigné</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         app.present_magapp === 'oui' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'

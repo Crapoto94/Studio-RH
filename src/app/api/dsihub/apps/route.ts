@@ -44,6 +44,33 @@ export async function GET(req: NextRequest) {
     }
 
     const data = await res.json()
+
+    // Résolution du nom du créateur de compte (email_createur, stocké côté
+    // AppDSI/magapp_apps) contre l'annuaire RefAgent de RH Studio — AppDSI ne
+    // connaît que l'email, pas le nom associé. Best effort : une app sans
+    // email_createur ou sans agent correspondant garde juste son email.
+    if (Array.isArray(data)) {
+      const emails = Array.from(new Set(
+        data.map((a: any) => (a.email_createur || '').trim()).filter(Boolean)
+      )) as string[]
+
+      if (emails.length > 0) {
+        try {
+          const agents = await prisma.refAgent.findMany({
+            where: { OR: emails.map((e) => ({ mail: { equals: e, mode: 'insensitive' as const } })) },
+            select: { mail: true, nom: true, prenom: true },
+          })
+          const byEmail = new Map(agents.filter((a) => a.mail).map((a) => [a.mail!.toLowerCase(), `${a.prenom} ${a.nom}`]))
+          data.forEach((a: any) => {
+            const email = (a.email_createur || '').trim().toLowerCase()
+            if (email) a.createur_nom = byEmail.get(email) || null
+          })
+        } catch (e: any) {
+          console.error('[DSIHUB-PROXY] Résolution nom créateur échouée:', e.message)
+        }
+      }
+    }
+
     return NextResponse.json({ data })
 
   } catch (error: any) {
