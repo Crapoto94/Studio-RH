@@ -293,7 +293,7 @@ export function WorkflowEditorTable({ value, onChange, formFields = [], listsCon
 
       {condEdit && (
         <Dialog open={!!condEdit} onOpenChange={() => setCondEdit(null)}>
-          <DialogContent className="max-w-md bg-white p-0 overflow-hidden rounded-3xl border-none shadow-2xl">
+          <DialogContent className="max-w-xl bg-white p-0 overflow-hidden rounded-3xl border-none shadow-2xl">
             <DialogHeader className="p-6 pb-0">
               <DialogTitle className="flex items-center gap-3 text-indigo-700 font-black uppercase tracking-tight text-lg">
                 <div className="p-2 bg-indigo-50 rounded-xl">
