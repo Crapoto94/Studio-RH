@@ -1035,6 +1035,7 @@ function DsihubSection() {
                   <th className="px-4 py-3 text-left">URL</th>
                   <th className="px-4 py-3 text-left">Créateur de compte</th>
                   <th className="px-4 py-3 text-center">MagApp</th>
+                  <th className="px-4 py-3 text-center">Onboard</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
@@ -1058,6 +1059,16 @@ function DsihubSection() {
                         app.present_magapp === 'oui' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'
                       }`}>
                         {app.present_magapp === 'oui' ? 'OUI' : 'NON'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span
+                        className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          app.present_onboard === 'oui' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'
+                        }`}
+                        title={app.present_onboard === 'oui' && !app.email_createur ? 'Marqué "onboard" mais sans créateur de compte : absent de la liste réellement proposée dans le formulaire' : undefined}
+                      >
+                        {app.present_onboard === 'oui' ? 'OUI' : 'NON'}
                       </span>
                     </td>
                   </tr>
