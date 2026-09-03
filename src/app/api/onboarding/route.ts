@@ -47,6 +47,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(futurs)
     }
 
+    // Variante utilisée par AppDSI (formulaire de demande "Arrivée d'agent") :
+    // 'futurs' exclut TOUT agent ayant ne serait-ce qu'un onboarding stub
+    // auto-détecté (statut 'a_faire', jamais réellement lancé par un manager,
+    // cf. auto-détection ci-dessous) — ce qui vide la liste au fil du temps
+    // sans qu'aucun onboarding n'ait été réellement traité. 'futurs_actionable'
+    // n'exclut que les agents dont l'onboarding a réellement démarré
+    // (statut != 'a_faire') : un stub 'a_faire' reste proposable, et POST
+    // /api/onboarding le complète au lieu d'en recréer un doublon (cf. plus bas).
+    if (mode === 'futurs_actionable') {
+      const started = await prisma.onboarding.findMany({ where: { NOT: { agent_id: null }, statut: { not: 'a_faire' } }, select: { agent_id: true } })
+      const startedIds = started.map(o => o.agent_id as number).filter(Boolean)
+      const futurs = await prisma.refAgent.findMany({
+        where: { id: { notIn: startedIds }, date_premiere_arrivee: { gte: new Date(), lte: thresholdDate } },
+        orderBy: { date_premiere_arrivee: 'asc' }
+      })
+      return NextResponse.json(futurs)
+    }
+
     // Auto-detection of new agents coming soon
     const activeOnboardings = await prisma.onboarding.findMany({ where: { NOT: { agent_id: null } }, select: { agent_id: true } })
     const excludedIds = activeOnboardings.map(o => o.agent_id as number).filter(Boolean)
@@ -94,21 +112,44 @@ export async function POST(req: NextRequest) {
 
     if (!manager_id) return NextResponse.json({ error: 'Manager obligatoire' }, { status: 400 })
 
-    const onboarding = await prisma.onboarding.create({
-      data: {
-        agent_id: agent_id || null,
-        manager_id,
-        nom_temp,
-        prenom_temp,
-        direction_temp,
-        service_temp,
-        poste_temp,
-        statut: 'en_cours_demande',
-        token_formulaire: randomUUID(),
-        date_arrivee_prevue: date_arrivee_prevue ? new Date(date_arrivee_prevue) : null,
-        dsihub_ticket_id: dsihub_ticket_id || null
-      }
-    })
+    // Si cet agent a déjà un onboarding "stub" (statut 'a_faire', créé par
+    // l'auto-détection GET /api/onboarding sans mode, jamais réellement lancé
+    // par un manager), on le complète au lieu d'en créer un doublon — cf.
+    // mode=futurs_actionable ci-dessus, qui propose ces stubs comme
+    // sélectionnables côté AppDSI.
+    const existingStub = agent_id
+      ? await prisma.onboarding.findFirst({ where: { agent_id, statut: 'a_faire' } })
+      : null
+
+    const onboarding = existingStub
+      ? await prisma.onboarding.update({
+          where: { id: existingStub.id },
+          data: {
+            manager_id,
+            direction_temp,
+            service_temp,
+            poste_temp,
+            statut: 'en_cours_demande',
+            token_formulaire: randomUUID(),
+            date_arrivee_prevue: date_arrivee_prevue ? new Date(date_arrivee_prevue) : existingStub.date_arrivee_prevue,
+            dsihub_ticket_id: dsihub_ticket_id || existingStub.dsihub_ticket_id
+          }
+        })
+      : await prisma.onboarding.create({
+          data: {
+            agent_id: agent_id || null,
+            manager_id,
+            nom_temp,
+            prenom_temp,
+            direction_temp,
+            service_temp,
+            poste_temp,
+            statut: 'en_cours_demande',
+            token_formulaire: randomUUID(),
+            date_arrivee_prevue: date_arrivee_prevue ? new Date(date_arrivee_prevue) : null,
+            dsihub_ticket_id: dsihub_ticket_id || null
+          }
+        })
 
     await notifyManager(onboarding, manager_id, req.nextUrl.origin)
     return NextResponse.json(onboarding)
