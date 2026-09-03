@@ -4,6 +4,35 @@ import { randomUUID } from 'crypto'
 import { sendEmailWithTemplate } from '@/lib/api-ville'
 import { notifyManagerSubmission, pushTaskToDsihub, markDsihubTicketInProgress } from '@/lib/onboarding'
 
+/**
+ * Évalue une condition de tâche de workflow (item.conditionalOn : { field,
+ * values }) par rapport aux réponses soumises par le manager — mêmes
+ * sémantiques que le conditionnement d'affichage des champs du formulaire
+ * (cf. isFieldVisible dans src/app/onboarding/form/[token]/page.tsx), pour
+ * que "cocher une case" et "déclencher une tâche" se comportent pareil : une
+ * tâche sans condition est toujours générée, une tâche conditionnée n'est
+ * générée que si le champ visé contient l'une des valeurs attendues (une
+ * case à cocher vraie vaut 'true'/'Oui', un multiselect est comparé élément
+ * par élément).
+ */
+function matchesCondition(conditionalOn: { field: string; values: string[] } | undefined | null, responses: Record<string, any>): boolean {
+  if (!conditionalOn || !conditionalOn.field) return true
+  const rawValue = responses[conditionalOn.field]
+  if (rawValue === undefined || rawValue === null || rawValue === '') return false
+
+  const targetValues = (conditionalOn.values || []).map((v) => String(v).toLowerCase())
+  const currentValues = (Array.isArray(rawValue) ? rawValue : [rawValue])
+    .flatMap((v: any) => {
+      const s = String(v)
+      if (v === true || s.toLowerCase() === 'true') return [s, 'Oui']
+      if (v === false || s.toLowerCase() === 'false') return [s, 'Non']
+      return [s]
+    })
+    .map((v: string) => v.toLowerCase())
+
+  return currentValues.some((v) => targetValues.includes(v))
+}
+
 // GET: Récupère les infos pour le formulaire manager via son token
 export async function GET(req: NextRequest) {
   try {
@@ -271,6 +300,11 @@ export async function POST(req: NextRequest) {
           const bodyTemplate = mailParam?.valeur || "Bonjour, une tâche a été générée : {{TASK_NAME}} pour {{AGENT_NOM}}. Cliquez ici : {{ACKNOWLEDGE_URL}}"
 
           for (const item of workflow) {
+            // Tâche conditionnée à un champ du formulaire (ex. "Téléphone
+            // portable / Carte SIM" coché) : ignorée si la condition n'est
+            // pas remplie par les réponses soumises, cf. matchesCondition ci-dessus.
+            if (!matchesCondition(item.conditionalOn, responses)) continue
+
             const taskToken = randomUUID()
             const taskName = item.task || item.label || item.titre || 'Tâche'
             // 'dsihub' : tâche affectée à un groupe DSI Hub (pas d'email, pas

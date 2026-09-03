@@ -201,9 +201,13 @@ export function OnboardingSettings() {
                       onChange={(e) => setWorkflowJson(e.target.value)}
                     />
                   ) : (
-                    <WorkflowEditorTable 
+                    <WorkflowEditorTable
                       value={currentWorkflow}
                       onChange={(val) => setWorkflowJson(val)}
+                      formFields={(() => {
+                        try { return JSON.parse(currentForm) } catch (e) { return [] }
+                      })()}
+                      listsConfig={currentLists}
                     />
                   )}
                 </div>
