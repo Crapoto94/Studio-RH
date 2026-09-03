@@ -26,6 +26,7 @@ export const ALL_ROUTES: ApiRoute[] = [
   { method: 'GET', path: '/api/agents/import-departed', description: 'Agents importés/départs', auth: 'session', permission: 'read' },
   { method: 'GET', path: '/api/agents/{id}/brut', description: "Données brutes d'un agent", auth: 'session', permission: 'read' },
   { method: 'GET', path: '/api/agents/presence', description: "Statut de présence d'un agent (par email ou nom/prénom, recherche tolérante)", auth: 'api-key-or-session', permission: 'read' },
+  { method: 'GET', path: '/api/agents/search', description: 'Recherche multi-résultats d\'agents (autocomplete, contains)', auth: 'api-key-or-session', permission: 'read' },
   { method: 'GET', path: '/api/ad/search', description: "Recherche dans l'Active Directory", auth: 'session', permission: 'read' },
   { method: 'GET', path: '/api/ad/audit', description: 'Audit AD', auth: 'session', permission: 'read' },
   { method: 'POST', path: '/api/ad/actions', description: "Actions sur l'AD", auth: 'session', permission: 'read_write' },
