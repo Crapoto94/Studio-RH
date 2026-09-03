@@ -31,9 +31,9 @@ export async function GET(req: NextRequest) {
     const agents = await prisma.refAgent.findMany({
       where: {
         OR: [
-          { nom: { contains: q } },
-          { prenom: { contains: q } },
-          { matricule: { contains: q } },
+          { nom: { contains: q, mode: 'insensitive' } },
+          { prenom: { contains: q, mode: 'insensitive' } },
+          { matricule: { contains: q, mode: 'insensitive' } },
         ],
         actif: true,
       },
