@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Search, Download, AlertTriangle, Loader2, GitMerge, Filter } from 'lucide-react'
+import { Search, Download, AlertTriangle, Loader2, GitMerge, Filter, Zap, CheckCircle2, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { AgentAvatar } from '@/components/common/AgentAvatar'
 import { parseDate } from '@/lib/utils'
 
@@ -22,6 +23,9 @@ export function DisalignmentList() {
   const [filterField, setFilterField] = useState<string>('all')
   const [rhFilterField, setRhFilterField] = useState<string>('direction')
   const [rhFilterValue, setRhFilterValue] = useState<string>('')
+  const [showConfirmApply, setShowConfirmApply] = useState(false)
+  const [applying, setApplying] = useState(false)
+  const [applyResults, setApplyResults] = useState<any[] | null>(null)
 
   useEffect(() => {
     fetchRules()
@@ -88,6 +92,31 @@ export function DisalignmentList() {
     a.remove()
   }
 
+  const handleApplyDirect = async () => {
+    if (selectedIds.size === 0) return
+    setShowConfirmApply(false)
+    setApplying(true)
+    setApplyResults(null)
+    try {
+      const selectedAgents = filteredData.filter(a => selectedIds.has(a.id))
+      const res = await fetch('/api/alignments/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agents: selectedAgents })
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setApplyResults([{ ad_id: '-', nom: 'Erreur', success: false, message: json.error || 'Erreur inconnue' }])
+      } else {
+        setApplyResults(json.results || [])
+      }
+    } catch (err: any) {
+      setApplyResults([{ ad_id: '-', nom: 'Erreur', success: false, message: err?.message || String(err) }])
+    } finally {
+      setApplying(false)
+    }
+  }
+
   const filteredData = data.filter(agent => {
     const matchField = filterField === 'all' || agent.diffs.some((d: any) => d.fieldRh === filterField)
     if (!matchField) return false
@@ -152,12 +181,18 @@ export function DisalignmentList() {
             </Button>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
              {filteredData.filter(a => selectedIds.has(a.id)).length > 0 && (
-              <Button onClick={handleAlign} className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2">
-                <GitMerge className="w-4 h-4" />
-                Générer script PowerShell ({filteredData.filter(a => selectedIds.has(a.id)).length})
-              </Button>
+              <>
+                <Button onClick={handleAlign} className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2">
+                  <GitMerge className="w-4 h-4" />
+                  Générer script PowerShell ({filteredData.filter(a => selectedIds.has(a.id)).length})
+                </Button>
+                <Button onClick={() => setShowConfirmApply(true)} disabled={applying} className="bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-2">
+                  {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                  Exécuter directement dans l'AD ({filteredData.filter(a => selectedIds.has(a.id)).length})
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -305,6 +340,62 @@ export function DisalignmentList() {
           </Table>
         </div>
       )}
+
+      <Dialog open={showConfirmApply} onOpenChange={setShowConfirmApply}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-700">
+              <AlertTriangle className="w-5 h-5" />
+              Exécution directe dans l'AD
+            </DialogTitle>
+            <DialogDescription>
+              Vous êtes sur le point d'appliquer <strong>{filteredData.filter(a => selectedIds.has(a.id)).length} correction(s)</strong> directement
+              dans l'Active Directory, sans passer par un script PowerShell. Cette action modifie immédiatement les comptes
+              concernés. Voulez-vous continuer ?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="default" onClick={() => setShowConfirmApply(false)} className="bg-[#0f172a] hover:bg-[#1e293b] text-white border-0">Annuler</Button>
+            <Button onClick={handleApplyDirect} className="bg-orange-600 hover:bg-orange-700 text-white border-0">
+              Confirmer l'exécution
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={applyResults !== null} onOpenChange={(open) => !open && setApplyResults(null)}>
+        <DialogContent className="max-w-2xl bg-white">
+          <DialogHeader>
+            <DialogTitle>Résultat de l'exécution dans l'AD</DialogTitle>
+            <DialogDescription>
+              {applyResults && (
+                <>
+                  {applyResults.filter(r => r.success).length} succès, {applyResults.filter(r => !r.success).length} échec(s).
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[400px] overflow-y-auto space-y-2">
+            {applyResults?.map((r, idx) => (
+              <div key={idx} className={`flex items-start gap-2 p-3 rounded-lg border text-sm ${r.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                {r.success ? <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" /> : <XCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />}
+                <div className="min-w-0">
+                  <div className="font-bold text-slate-800">{r.nom} <span className="font-normal text-slate-400">({r.ad_id})</span></div>
+                  <div className={r.success ? 'text-green-700' : 'text-red-700'}>{r.message}</div>
+                  {r.skippedFields?.length > 0 && (
+                    <div className="text-[10px] text-slate-400 mt-1">Champ(s) ignoré(s) : {r.skippedFields.join(', ')}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => { setApplyResults(null); fetchChecks() }} className="bg-[#0f172a] hover:bg-[#1e293b] text-white border-0">
+              Fermer et rafraîchir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
