@@ -39,10 +39,12 @@ export async function POST(req: NextRequest) {
       connectTimeout: 5000,
     })
 
-    const results: Array<{ ad_id: string; nom: string; success: boolean; message: string; skippedFields?: string[] }> = []
+    type FieldResult = { fieldAd: string; ldapAttr: string | null; valRh: string; success: boolean; message: string; skipped?: boolean }
+    const results: Array<{ ad_id: string; nom: string; success: boolean; message: string; fields: FieldResult[] }> = []
 
     try {
       await client.bind(dn, pass)
+      const baseDN = await getParam('AD_BASE_DN')
 
       for (const agent of agents) {
         const { ad_id, diffs, nom, prenom } = agent
@@ -56,7 +58,6 @@ export async function POST(req: NextRequest) {
           targetDn = brutAdEntry?.distinguished_name || null
 
           if (!targetDn) {
-            const baseDN = await getParam('AD_BASE_DN')
             const { searchEntries } = await client.search(baseDN, {
               scope: 'sub',
               filter: `(sAMAccountName=${ad_id})`,
@@ -67,34 +68,43 @@ export async function POST(req: NextRequest) {
           }
 
           if (!targetDn) {
-            results.push({ ad_id, nom: label, success: false, message: 'Compte introuvable dans AD (DN non résolu).' })
+            results.push({ ad_id, nom: label, success: false, message: 'Compte introuvable dans AD (DN non résolu).', fields: [] })
             continue
           }
 
-          const changes: Change[] = []
-          const skippedFields: string[] = []
-
+          // Chaque attribut est appliqué par un appel LDAP indépendant : si l'AD refuse
+          // un attribut précis (droits insuffisants sur cet attribut ou cet objet), les
+          // autres corrections de cet agent ne sont pas bloquées, et on sait exactement
+          // quel champ pose problème plutôt que de perdre tout le lot sur une seule erreur.
+          const fields: FieldResult[] = []
           for (const d of diffs) {
             const ldapAttr = resolveLdapAttribute(d.fieldAd, matriculeAttr)
+            const valRh = d.valRh || ''
             if (!ldapAttr) {
-              skippedFields.push(d.fieldAd)
+              fields.push({ fieldAd: d.fieldAd, ldapAttr: null, valRh, success: false, message: 'Champ non modifiable directement.', skipped: true })
               continue
             }
-            changes.push(new Change({
-              operation: 'replace',
-              modification: new Attribute({ type: ldapAttr, values: [d.valRh || ''] }),
-            }))
+            try {
+              await client.modify(targetDn, new Change({
+                operation: 'replace',
+                modification: new Attribute({ type: ldapAttr, values: [valRh] }),
+              }))
+              fields.push({ fieldAd: d.fieldAd, ldapAttr, valRh, success: true, message: 'Mis à jour.' })
+            } catch (fieldErr: any) {
+              fields.push({ fieldAd: d.fieldAd, ldapAttr, valRh, success: false, message: fieldErr?.message || String(fieldErr) })
+            }
           }
 
-          if (changes.length === 0) {
-            results.push({ ad_id, nom: label, success: false, message: 'Aucun champ modifiable directement.', skippedFields })
-            continue
-          }
+          const attempted = fields.filter(f => !f.skipped)
+          const succeeded = attempted.filter(f => f.success)
+          const agentSuccess = attempted.length > 0 && succeeded.length === attempted.length
+          const message = attempted.length === 0
+            ? 'Aucun champ modifiable directement.'
+            : `${succeeded.length}/${attempted.length} attribut(s) mis à jour.`
 
-          await client.modify(targetDn, changes)
-          results.push({ ad_id, nom: label, success: true, message: `${changes.length} attribut(s) mis à jour.`, skippedFields: skippedFields.length ? skippedFields : undefined })
+          results.push({ ad_id, nom: label, success: agentSuccess, message, fields })
         } catch (err: any) {
-          results.push({ ad_id, nom: label, success: false, message: err?.message || String(err) })
+          results.push({ ad_id, nom: label, success: false, message: err?.message || String(err), fields: [] })
         }
       }
     } finally {

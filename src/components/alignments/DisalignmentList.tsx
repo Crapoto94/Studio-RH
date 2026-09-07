@@ -379,11 +379,26 @@ export function DisalignmentList() {
             {applyResults?.map((r, idx) => (
               <div key={idx} className={`flex items-start gap-2 p-3 rounded-lg border text-sm ${r.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                 {r.success ? <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" /> : <XCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />}
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="font-bold text-slate-800">{r.nom} <span className="font-normal text-slate-400">({r.ad_id})</span></div>
                   <div className={r.success ? 'text-green-700' : 'text-red-700'}>{r.message}</div>
-                  {r.skippedFields?.length > 0 && (
-                    <div className="text-[10px] text-slate-400 mt-1">Champ(s) ignoré(s) : {r.skippedFields.join(', ')}</div>
+                  {r.fields?.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {r.fields.map((f: any, fidx: number) => (
+                        <div key={fidx} className="flex items-start gap-1.5 text-xs">
+                          {f.skipped ? (
+                            <span className="text-slate-300 mt-0.5">·</span>
+                          ) : f.success ? (
+                            <CheckCircle2 className="w-3 h-3 text-green-600 mt-0.5 shrink-0" />
+                          ) : (
+                            <XCircle className="w-3 h-3 text-red-600 mt-0.5 shrink-0" />
+                          )}
+                          <span className={f.skipped ? 'text-slate-400' : f.success ? 'text-slate-600' : 'text-red-600'}>
+                            <span className="font-mono">{f.ldapAttr || f.fieldAd}</span> → "{f.valRh}" : {f.message}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
