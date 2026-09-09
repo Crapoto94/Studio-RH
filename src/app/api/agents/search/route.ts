@@ -51,6 +51,11 @@ export async function GET(req: NextRequest) {
         service: a.nom_service,
         direction: a.nom_direction,
         fonction: a.fonction_l || a.poste_l,
+        // Utilisé côté DSI Hub (formulaire "Arrivée d'agent") pour signaler
+        // visuellement un agent sans compte AD — cas fréquent pour un
+        // nouvel arrivant, tout l'intérêt du formulaire étant justement de
+        // déclencher la création de ce compte.
+        has_ad: !!(a.ad_id || a.azure_id),
       })),
     })
   } catch (error: any) {
