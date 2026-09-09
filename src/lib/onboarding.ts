@@ -15,25 +15,82 @@ export function isTaskTokenExpired(tokenCreatedAt: Date | string | null | undefi
 }
 
 /**
+ * Nettoyage quotidien de la colonne "À FAIRE (RH)" : supprime tout
+ * onboarding statut='a_faire' dont la date d'arrivée prévue est dépassée —
+ * y compris les cas "manager manquant" jamais résolus (choix assumé : sur
+ * demande explicite, mieux vaut nettoyer la liste que la voir grossir
+ * indéfiniment de dossiers plus jamais actionnables — ce qui contredit le
+ * choix précédent de les garder indéfiniment, cf. le commentaire sur
+ * 'futurs_actionable' dans /api/onboarding route.ts). Supprime en cascade
+ * les OnboardingTask éventuelles (onDelete: Cascade, schema.prisma) — en
+ * pratique aucune, un stub 'a_faire' n'a jamais été traité par un manager.
+ * Appelé par CronManager (type 'onboarding_cleanup', cf. cronManager.ts) —
+ * à planifier depuis /crons (aucun job n'est créé automatiquement).
+ */
+export async function runOnboardingCleanup(): Promise<{ success: boolean; message: string; stats?: any }> {
+  const log = await prisma.synchroLog.create({
+    data: { type: 'onboarding_cleanup', statut: 'en_cours', message: 'Nettoyage des propositions "À faire" en retard...' }
+  })
+
+  try {
+    const stale = await prisma.onboarding.findMany({
+      where: { statut: 'a_faire', date_arrivee_prevue: { lt: new Date() } },
+      select: {
+        id: true,
+        nom_temp: true,
+        prenom_temp: true,
+        date_arrivee_prevue: true,
+        agent: { select: { nom: true, prenom: true } },
+      }
+    })
+
+    if (stale.length > 0) {
+      await prisma.onboarding.deleteMany({ where: { id: { in: stale.map(s => s.id) } } })
+
+      await prisma.audit.createMany({
+        data: stale.map(s => {
+          const label = s.agent ? `${s.agent.prenom} ${s.agent.nom}` : `${s.prenom_temp || ''} ${s.nom_temp || ''}`.trim() || 'agent inconnu'
+          const dateStr = s.date_arrivee_prevue ? new Date(s.date_arrivee_prevue).toLocaleDateString('fr-FR') : '?'
+          return {
+            action: 'ONBOARDING_STALE_CLEANUP',
+            target: `Onboarding ID: ${s.id}`,
+            details: `Proposition "À faire" supprimée automatiquement (arrivée prévue le ${dateStr}, dépassée) : ${label}`,
+          }
+        })
+      }).catch(() => {})
+    }
+
+    const finalMsg = `Nettoyage terminé. ${stale.length} proposition(s) "À faire" en retard supprimée(s).`
+    await prisma.synchroLog.update({ where: { id: log.id }, data: { statut: 'success', message: finalMsg, progress: 100 } })
+    return { success: true, message: finalMsg, stats: { deleted: stale.length } }
+  } catch (e: any) {
+    const finalMsg = `Erreur nettoyage onboarding : ${e.message}`
+    await prisma.synchroLog.update({ where: { id: log.id }, data: { statut: 'error', message: finalMsg } }).catch(() => {})
+    return { success: false, message: finalMsg }
+  }
+}
+
+/**
  * Pousse une tâche d'onboarding vers AppDSI, rattachée au ticket qui a
- * déclenché cet onboarding (Onboarding.dsihub_ticket_id). Renvoie l'id de la
- * tâche DSI Hub créée (à stocker dans OnboardingTask.dsihub_task_id pour
- * permettre le rappel d'acquittement automatique), ou null si l'appel
- * échoue — best effort, ne doit jamais faire échouer la génération des
- * tâches d'onboarding.
+ * déclenché cet onboarding (Onboarding.dsihub_ticket_id) et affectée à un
+ * groupe technicien DSI Hub (groupId — obligatoire côté AppDSI, vérifié dans
+ * son code source, backend/modules/tasks/tasks.controller.js#
+ * createExternalRhStudioTask : `if (!ticket_id || !group_id || ...)`, et une
+ * ligne hub.user_tasks — username NOT NULL — est créée par membre du
+ * groupe). Il n'existe PAS de tâche "visible dans le ticket mais non
+ * affectée" côté AppDSI : un appel sans groupe valide échoue toujours
+ * (400), quelle que soit la forme du payload (testé en prod le 09/09/2026 —
+ * la tâche "Création de compte logiciel" de Franck Plichart n'est jamais
+ * remontée dans le ticket 45033, group_id absent).
  *
- * groupId affecte la tâche à un groupe technicien DSI Hub précis (choisi
- * lors du paramétrage du workflow, item.dsihubGroupId) — omis pour les
- * tâches générées automatiquement (ex. création de compte logiciel) qui
- * doivent seulement être visibles dans le ticket, sans affectation. Dans ce
- * cas le champ group_id est absent du payload (plutôt qu'envoyé à null) :
- * beaucoup de validateurs REST (class-validator @IsOptional, etc.)
- * acceptent un champ absent mais rejettent un null explicite sur un champ
- * numérique.
+ * Renvoie l'id de la tâche DSI Hub créée (à stocker dans
+ * OnboardingTask.dsihub_task_id pour permettre le rappel d'acquittement
+ * automatique), ou null si l'appel échoue — best effort, ne doit jamais
+ * faire échouer la génération des tâches d'onboarding.
  */
 export async function pushTaskToDsihub(params: {
   dsihubTicketId: number
-  groupId?: number | null
+  groupId: number
   description: string
   rhStudioTaskId: number
 }): Promise<number | null> {
@@ -47,13 +104,11 @@ export async function pushTaskToDsihub(params: {
       return null
     }
 
-    const payload: Record<string, any> = {
+    const payload = {
       ticket_id: params.dsihubTicketId,
+      group_id: params.groupId,
       description: params.description,
       rh_studio_task_id: params.rhStudioTaskId,
-    }
-    if (params.groupId !== undefined && params.groupId !== null) {
-      payload.group_id = params.groupId
     }
 
     const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/tasks/external/rh-studio`, {

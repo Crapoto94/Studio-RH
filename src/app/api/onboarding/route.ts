@@ -57,11 +57,11 @@ export async function GET(req: NextRequest) {
     // /api/onboarding le complète au lieu d'en recréer un doublon (cf. plus bas).
     //
     // Un agent devient "actionnable" de deux façons :
-    //  (a) il a déjà un stub 'a_faire' (peu importe sa date d'arrivée, même
-    //      dépassée — cas "MANAGER MANQUANT" jamais résolu : ces stubs restent
-    //      "à faire" indéfiniment tant qu'un manager n'est pas renseigné, donc
-    //      les exclure sous prétexte que la date est passée les rendait
-    //      invisibles à la fois du dashboard "à traiter" ET du picker AppDSI) ;
+    //  (a) il a déjà un stub 'a_faire', quelle que soit sa date d'arrivée —
+    //      NB : un stub 'a_faire' dont la date d'arrivée est dépassée est
+    //      supprimé par le cron quotidien 'onboarding_cleanup' (cf.
+    //      runOnboardingCleanup dans lib/onboarding.ts, à planifier depuis
+    //      /crons) ; ce cas ne devrait donc normalement durer qu'un jour ;
     //  (b) pas encore de stub, mais arrivée prévue dans la fenêtre RH_FUTUR_DAYS.
     if (mode === 'futurs_actionable') {
       const stubs = await prisma.onboarding.findMany({

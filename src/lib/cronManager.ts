@@ -1,6 +1,7 @@
 import cron, { ScheduledTask } from 'node-cron'
 import { prisma, prismaLocal } from './db'
 import { runRhSync, runAdSync, runAzureSync, runBrutSync } from './sync'
+import { runOnboardingCleanup } from './onboarding'
 
 interface QueueItem {
   jobId: number
@@ -81,6 +82,9 @@ class CronManager {
         case 'brut':
         case 'mairie':
           result = await runBrutSync()
+          break
+        case 'onboarding_cleanup':
+          result = await runOnboardingCleanup()
           break
         default:
           console.warn(`[CRON] Unknown sync type: ${type}`)

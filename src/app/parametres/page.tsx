@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { PageHeader } from '@/components/common/PageHeader'
@@ -757,6 +757,51 @@ function SimpleInput({ label, dbKey, placeholder, type = 'text' }: {
   )
 }
 
+/**
+ * Sélection du groupe technicien DSI Hub par défaut pour les tâches
+ * "Création de compte logiciel" (Parametre DSIHUB_SOFTWARE_TASK_GROUP_ID) —
+ * même liste de groupes (/api/dsihub/groups) que WorkflowEditorTable, mais
+ * un seul choix global plutôt qu'un par tâche de workflow, ces tâches étant
+ * générées automatiquement (une par logiciel coché), pas configurées à
+ * l'avance une par une.
+ */
+function DsihubSoftwareTaskGroupSelect() {
+  const { data: params = {} } = useParametres()
+  const queryClient = useQueryClient()
+  const [groups, setGroups] = useState<{ id: number, name: string }[]>([])
+
+  useEffect(() => {
+    fetch('/api/dsihub/groups')
+      .then(res => res.json())
+      .then(json => setGroups(Array.isArray(json.data) ? json.data : []))
+      .catch(() => setGroups([]))
+  }, [])
+
+  const save = useMutation({
+    mutationFn: async (value: string) => {
+      await fetch('/api/parametres', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'DSIHUB_SOFTWARE_TASK_GROUP_ID', value })
+      })
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['parametres'] })
+  })
+
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+      <label className="sm:w-56 text-sm font-medium text-slate-600 shrink-0">Groupe DSI Hub (tâches logiciel)</label>
+      <select
+        value={params['DSIHUB_SOFTWARE_TASK_GROUP_ID'] || ''}
+        onChange={e => save.mutate(e.target.value)}
+        className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-indigo-400 transition-colors"
+      >
+        <option value="">— Aucun (pas de remontée dans le ticket) —</option>
+        {groups.map(g => <option key={g.id} value={String(g.id)}>{g.name}</option>)}
+      </select>
+    </div>
+  )
+}
+
 function SimpleCheckbox({ label, dbKey }: { label: string, dbKey: string }) {
   const { data: params = {} } = useParametres()
   const queryClient = useQueryClient()
@@ -1011,9 +1056,19 @@ function DsihubSection() {
           </p>
         </div>
 
+        <div className="max-w-2xl">
+          <DsihubSoftwareTaskGroupSelect />
+          <p className="text-[10px] text-slate-400 mt-1 ml-0 sm:ml-60">
+            Groupe technicien DSI Hub auquel affecter les tâches "Création de compte logiciel" générées automatiquement
+            (logiciels métiers cochés par le manager). AppDSI exige un groupe pour créer une tâche dans un ticket
+            (impossible de la laisser "non affectée mais visible") — sans ce réglage, ces tâches restent envoyées par
+            mail au créateur du logiciel mais n'apparaissent pas dans le ticket.
+          </p>
+        </div>
+
         <div className="flex items-center gap-3">
-          <button 
-            onClick={fetchApps} 
+          <button
+            onClick={fetchApps}
             disabled={loading}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-white text-sm font-semibold hover:bg-slate-900 transition-colors disabled:opacity-50"
           >

@@ -391,9 +391,19 @@ export async function POST(req: NextRequest) {
             
             const mailParam = await prismaLocal.parametre.findUnique({ where: { cle: 'MAIL_MSG_WORKFLOW' } })
             const bodyTemplate = mailParam?.valeur || "Bonjour, une tâche a été générée : {{TASK_NAME}} pour {{AGENT_NOM}}. Cliquez ici : {{ACKNOWLEDGE_URL}}"
-            const agentName = onboarding.agent 
-                ? `${onboarding.agent.prenom} ${onboarding.agent.nom}` 
+            const agentName = onboarding.agent
+                ? `${onboarding.agent.prenom} ${onboarding.agent.nom}`
                 : `${onboarding.prenom_temp} ${onboarding.nom_temp}`
+
+            // Groupe technicien DSI Hub par défaut pour ces tâches (paramétrable
+            // dans /parametres) : AppDSI exige un group_id pour créer une tâche
+            // rattachée à un ticket (POST /tasks/external/rh-studio, cf.
+            // createExternalRhStudioTask) — il n'existe pas de tâche "visible
+            // mais non affectée" côté AppDSI (hub.user_tasks.username NOT NULL,
+            // une ligne par membre du groupe). Sans ce réglage, ces tâches ne
+            // remontent pas dans le ticket (mail au créateur uniquement).
+            const softwareGroupParam = await prismaLocal.parametre.findUnique({ where: { cle: 'DSIHUB_SOFTWARE_TASK_GROUP_ID' } })
+            const softwareGroupId = softwareGroupParam?.valeur ? parseInt(softwareGroupParam.valeur, 10) : null
 
             for (const swName of selectedSoftwareNames) {
                 const sw = Array.isArray(dsihubApps) ? dsihubApps.find((app: any) => app.name === swName) : null
@@ -415,11 +425,11 @@ export async function POST(req: NextRequest) {
                     // Visible dans le ticket DSI Hub en plus du mail au créateur
                     // (recipient_type reste 'email', le lien d'acquittement public
                     // continue de fonctionner ; dsihub_task_id permet en plus le
-                    // rappel d'acquittement automatique depuis DSI Hub). Pas de
-                    // groupe technicien affecté : juste visible, non affectée.
-                    if (onboarding.dsihub_ticket_id) {
+                    // rappel d'acquittement automatique depuis DSI Hub).
+                    if (onboarding.dsihub_ticket_id && softwareGroupId) {
                         const dsihubTaskId = await pushTaskToDsihub({
                             dsihubTicketId: onboarding.dsihub_ticket_id,
+                            groupId: softwareGroupId,
                             description: taskTitle,
                             rhStudioTaskId: createdSoftwareTask.id,
                         })
@@ -429,6 +439,8 @@ export async function POST(req: NextRequest) {
                                 data: { dsihub_task_id: dsihubTaskId }
                             })
                         }
+                    } else if (onboarding.dsihub_ticket_id && !softwareGroupId) {
+                        console.warn(`[ONBOARDING-PUBLIC] Tâche logiciel "${taskTitle}" non poussée dans le ticket DSI Hub : DSIHUB_SOFTWARE_TASK_GROUP_ID non configuré (/parametres).`)
                     }
 
                     await sendEmailWithTemplate({

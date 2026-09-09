@@ -136,6 +136,7 @@ export default function CronsPage() {
                   <option value="azure">Azure AD (Office 365)</option>
                   <option value="brut">Import complet (Brut)</option>
                   <option value="mairie">Base Noms (Mairie)</option>
+                  <option value="onboarding_cleanup">Nettoyage Onboarding (À faire en retard)</option>
                 </select>
               </div>
               <div className="space-y-1.5">
