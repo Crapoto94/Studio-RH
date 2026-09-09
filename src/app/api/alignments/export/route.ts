@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prismaLocal } from '@/lib/db'
+import { resolveLdapAttribute } from '@/lib/ad-fields'
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,6 +11,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Aucun agent sélectionné' }, { status: 400 })
     }
 
+    const matriculeAttr = (await prismaLocal.parametre.findUnique({ where: { cle: 'AD_ATTRIBUTE_MATRICULE' } }))?.valeur || 'employeeID'
+
     let script = `# Script d'alignement AD - RH Studio\n`
     script += `# Généré le ${new Date().toLocaleString('fr-FR')}\n\n`
     script += `Import-Module ActiveDirectory\n\n`
@@ -18,9 +21,24 @@ export async function POST(req: NextRequest) {
       const { ad_id, diffs } = agent
       if (!ad_id || !diffs || diffs.length === 0) continue
 
-      const replaceMap = diffs.map((d: any) => `'${d.fieldAd}' = '${d.valRh.replace(/'/g, "''")}'`).join('; ')
+      const replaceParts: string[] = []
+      const skipped: string[] = []
+      for (const d of diffs) {
+        const ldapAttr = resolveLdapAttribute(d.fieldAd, matriculeAttr)
+        if (!ldapAttr) {
+          skipped.push(d.fieldAd)
+          continue
+        }
+        replaceParts.push(`'${ldapAttr}' = '${(d.valRh || '').replace(/'/g, "''")}'`)
+      }
+
+      if (skipped.length > 0) {
+        script += `# Ignoré pour ${ad_id} (champ(s) non modifiable(s) directement) : ${skipped.join(', ')}\n`
+      }
+      if (replaceParts.length === 0) continue
+
       script += `Write-Host "Mise à jour de l'utilisateur : ${ad_id}"\n`
-      script += `Set-ADUser -Identity "${ad_id}" -Replace @{ ${replaceMap} }\n`
+      script += `Set-ADUser -Identity "${ad_id}" -Replace @{ ${replaceParts.join('; ')} }\n`
       script += `if ($?) { Write-Host "Succès" -ForegroundColor Green } else { Write-Host "Échec" -ForegroundColor Red }\n\n`
     }
 
