@@ -190,18 +190,23 @@ function ManagerDashboardContent() {
                    </div>
 
                    <div className="pt-4 border-t border-slate-50">
-                      <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-3">Détails des préparations</div>
-                      <div className="space-y-2">
-                         {o.tasks?.slice(0, 3).map((task: any) => (
-                           <div key={task.id} className="flex items-center gap-3">
+                      <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-3">Détails des préparations ({totalTasks})</div>
+                      <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                         {o.tasks?.map((task: any) => (
+                           <div key={task.id} className="flex items-start gap-3">
                               {task.done ? (
-                                <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+                                <CheckCircle2 size={14} className="text-emerald-500 shrink-0 mt-0.5" />
                               ) : (
-                                <Clock size={14} className="text-slate-200 shrink-0" />
+                                <Clock size={14} className="text-slate-300 shrink-0 mt-0.5" />
                               )}
                               <div className="flex-1 min-w-0">
-                                <span className={`text-[11px] block truncate ${task.done ? 'text-slate-400 line-through' : 'text-slate-600 font-bold'}`}>
+                                <span className={`text-[11px] block ${task.done ? 'text-slate-400 line-through' : 'text-slate-600 font-bold'}`}>
                                    {task.titre}
+                                </span>
+                                <span className={`text-[9px] font-black uppercase tracking-widest block leading-tight mt-0.5 ${task.done ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                   {task.done
+                                     ? `Terminée${task.date_completion ? ' le ' + formatDate(task.date_completion) : ''}`
+                                     : 'En attente'}
                                 </span>
                                 {task.commentaire && (
                                   <span className="text-[10px] text-indigo-500/80 font-medium italic block leading-tight mt-0.5">
@@ -211,11 +216,6 @@ function ManagerDashboardContent() {
                               </div>
                            </div>
                          ))}
-                         {totalTasks > 3 && (
-                           <div className="text-[10px] font-bold text-indigo-500 pl-6 italic">
-                              + {totalTasks - 3} autres tâches...
-                           </div>
-                         )}
                          {totalTasks === 0 && (
                             <div className="py-4 text-center text-[10px] font-bold text-slate-300 bg-slate-50/50 rounded-xl uppercase tracking-widest border border-dashed border-slate-100">
                                Configuration en cours...

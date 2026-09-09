@@ -25,9 +25,11 @@ export function isTaskTokenExpired(tokenCreatedAt: Date | string | null | undefi
  * groupId affecte la tâche à un groupe technicien DSI Hub précis (choisi
  * lors du paramétrage du workflow, item.dsihubGroupId) — omis pour les
  * tâches générées automatiquement (ex. création de compte logiciel) qui
- * doivent seulement être visibles dans le ticket, sans affectation
- * (group_id: null — à confirmer que AppDSI traite bien ce cas comme "non
- * affectée" plutôt que de rejeter la création).
+ * doivent seulement être visibles dans le ticket, sans affectation. Dans ce
+ * cas le champ group_id est absent du payload (plutôt qu'envoyé à null) :
+ * beaucoup de validateurs REST (class-validator @IsOptional, etc.)
+ * acceptent un champ absent mais rejettent un null explicite sur un champ
+ * numérique.
  */
 export async function pushTaskToDsihub(params: {
   dsihubTicketId: number
@@ -45,24 +47,46 @@ export async function pushTaskToDsihub(params: {
       return null
     }
 
+    const payload: Record<string, any> = {
+      ticket_id: params.dsihubTicketId,
+      description: params.description,
+      rh_studio_task_id: params.rhStudioTaskId,
+    }
+    if (params.groupId !== undefined && params.groupId !== null) {
+      payload.group_id = params.groupId
+    }
+
     const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/tasks/external/rh-studio`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-      body: JSON.stringify({
-        ticket_id: params.dsihubTicketId,
-        group_id: params.groupId ?? null,
-        description: params.description,
-        rh_studio_task_id: params.rhStudioTaskId,
-      }),
+      body: JSON.stringify(payload),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      console.error('[ONBOARDING-DSIHUB-PUSH] échec', res.status, data)
+      const detail = `Statut ${res.status} — ${JSON.stringify(data)} — payload envoyé : ${JSON.stringify(payload)}`
+      console.error('[ONBOARDING-DSIHUB-PUSH] échec', detail)
+      // Traçable en base (pas seulement dans les logs serveur, pas toujours
+      // accessibles) : cf. échec réel constaté en prod le 09/09/2026 sur une
+      // tâche logicielle sans group_id, jamais remontée dans le ticket.
+      await prisma.audit.create({
+        data: {
+          action: 'ONBOARDING_DSIHUB_PUSH_FAILED',
+          target: `Onboarding task RH Studio ID: ${params.rhStudioTaskId}`,
+          details: detail,
+        }
+      }).catch(() => {})
       return null
     }
     return data.id ?? null
   } catch (e: any) {
     console.error('[ONBOARDING-DSIHUB-PUSH-ERROR]', e.message)
+    await prisma.audit.create({
+      data: {
+        action: 'ONBOARDING_DSIHUB_PUSH_FAILED',
+        target: `Onboarding task RH Studio ID: ${params.rhStudioTaskId}`,
+        details: `Exception : ${e.message}`,
+      }
+    }).catch(() => {})
     return null
   }
 }
