@@ -228,6 +228,22 @@ function OnboardingFormContent() {
     }
   }, [data, allFields])
 
+  // Une fois le formulaire soumis (statut != a_faire), on réhydrate formData
+  // avec les réponses réellement enregistrées : le lien du ticket DSI Hub doit
+  // amener au formulaire renseigné, pas juste à un message de confirmation.
+  useEffect(() => {
+    const statut = data?.onboarding?.statut
+    const reponses = data?.onboarding?.reponses_formulaire
+    if (reponses && (statut === 'en_cours_realisation' || statut === 'termine')) {
+      try {
+        const parsed = JSON.parse(reponses)
+        setFormData(prev => ({ ...prev, ...parsed }))
+      } catch (e) {
+        console.error('[ONBOARDING-FORM] reponses_formulaire JSON invalide', e)
+      }
+    }
+  }, [data])
+
   // Reset service when direction changes
   useEffect(() => {
     if (formData.direction && formData.service) {
@@ -242,42 +258,6 @@ function OnboardingFormContent() {
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-indigo-600" size={40} /></div>
   if (error || !data) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-red-500 font-bold"><AlertCircle size={24} className="mr-2" /> {error?.message || 'Erreur inconnue'}</div>
   
-  if (submitted || data.onboarding.statut === 'en_cours_realisation' || data.onboarding.statut === 'termine' || data.onboarding.statut === 'annule') {
-    const isActuallyCancelled = isCancelled || data.onboarding.statut === 'annule'
-    return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-2xl shadow-indigo-100 border-none rounded-3xl overflow-hidden">
-          <div className={`h-2 bg-gradient-to-r ${isActuallyCancelled ? 'from-rose-500 via-red-500 to-rose-400' : 'from-indigo-500 via-purple-500 to-pink-500'}`}></div>
-          <CardContent className="pt-10 pb-12 px-8">
-            <div className="text-center space-y-4">
-              {isActuallyCancelled ? (
-                <>
-                  <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <XCircle size={32} />
-                  </div>
-                  <h2 className="text-2xl font-black text-slate-800 tracking-tight">Onboarding annulé</h2>
-                  <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                    L'agent ne sera pas onboardé. L'action a été enregistrée.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <div className="w-16 h-16 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <CheckCircle size={32} />
-                  </div>
-                  <h2 className="text-2xl font-black text-slate-800 tracking-tight">C'est noté !</h2>
-                  <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                    Le dossier a bien été transmis aux différents services. Vous pourrez suivre l'avancement via votre tableau de bord.
-                  </p>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   const { onboarding, lists } = data
   const agentName = onboarding.agent ? `${onboarding.agent.prenom} ${onboarding.agent.nom}` : `${onboarding.prenom_temp} ${onboarding.nom_temp}`
   const currentStep = steps[currentStepIndex]
@@ -333,6 +313,87 @@ function OnboardingFormContent() {
       if (!group) return false
       if (group.titleField && !isFieldVisible(group.titleField)) return false
       return (group.fields || []).some((f: any) => isFieldVisible(f))
+  }
+
+  const renderAnswersRecap = () => (
+    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
+      {steps.filter((s: any) => !s.isSummary && s.groups).map((step: any) => (
+         step.groups.filter(isGroupVisible).map((group: any, gIdx: number) => (
+            <div key={`${step.title}-${gIdx}`} className="p-6">
+                <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-4 border-l-2 border-indigo-100 pl-3">
+                    {group.title || step.title}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                    {group.fields.filter(isFieldVisible).map((f: any) => (
+                        <div key={f.id} className="space-y-1">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{f.label}</p>
+                            <p className="text-sm font-bold text-slate-700">
+                                {Array.isArray(formData[f.id]) ? (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                        {(formData[f.id] || []).map((v: string) => <span key={v} className="bg-slate-50 text-slate-600 text-[10px] px-2 py-0.5 rounded border border-slate-100">{v}</span>)}
+                                    </div>
+                                ) : (formData[f.id] === true ? 'Oui' : (formData[f.id] === false ? 'Non' : (formData[f.id] || <span className="text-slate-300 font-medium italic">Non renseigné</span>)))}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        ))
+      ))}
+    </div>
+  )
+
+  // Une fois le formulaire soumis (en session ou constaté en base au
+  // rechargement du lien), on affiche le récapitulatif renseigné plutôt
+  // qu'un simple message : c'est ce que le lien du ticket DSI Hub doit
+  // pouvoir montrer à tout moment (avant/après rafraîchissement de page).
+  const isFinalStatus = onboarding.statut === 'en_cours_realisation' || onboarding.statut === 'termine' || onboarding.statut === 'annule'
+  if (submitted || isFinalStatus) {
+    const isActuallyCancelled = isCancelled || onboarding.statut === 'annule'
+
+    if (isActuallyCancelled) {
+      return (
+        <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
+          <Card className="w-full max-w-md shadow-2xl shadow-indigo-100 border-none rounded-3xl overflow-hidden">
+            <div className="h-2 bg-gradient-to-r from-rose-500 via-red-500 to-rose-400"></div>
+            <CardContent className="pt-10 pb-12 px-8">
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <XCircle size={32} />
+                </div>
+                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Onboarding annulé</h2>
+                <p className="text-slate-500 text-sm font-medium leading-relaxed">
+                  L'agent ne sera pas onboardé. L'action a été enregistrée.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
+
+    return (
+      <div className="min-h-screen bg-[#f8fafc] py-12 px-4">
+        <div className="max-w-3xl mx-auto space-y-8">
+          <Card className="shadow-2xl shadow-indigo-100 border-none rounded-3xl overflow-hidden">
+            <div className="h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+            <CardContent className="pt-10 pb-10 px-8">
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <CheckCircle size={32} />
+                </div>
+                <h2 className="text-2xl font-black text-slate-800 tracking-tight">C'est noté !</h2>
+                <p className="text-slate-500 text-sm font-medium leading-relaxed">
+                  Le dossier de <span className="text-indigo-600 font-bold">{agentName}</span> a bien été transmis aux différents services. Voici le récapitulatif de ce qui a été renseigné.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {renderAnswersRecap()}
+        </div>
+      </div>
+    )
   }
 
   const canGoNext = () => {
@@ -402,31 +463,9 @@ function OnboardingFormContent() {
           </div>
 
           {currentStep.isSummary ? (
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
-              {steps.filter((s: any) => !s.isSummary && s.groups).map((step: any) => (
-                 step.groups.filter(isGroupVisible).map((group: any, gIdx: number) => (
-                    <div key={`${step.title}-${gIdx}`} className="p-6">
-                        <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-4 border-l-2 border-indigo-100 pl-3">
-                            {group.title || step.title}
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                            {group.fields.filter(isFieldVisible).map((f: any) => (
-                                <div key={f.id} className="space-y-1">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{f.label}</p>
-                                    <p className="text-sm font-bold text-slate-700">
-                                        {Array.isArray(formData[f.id]) ? (
-                                            <div className="flex flex-wrap gap-1 mt-1">
-                                                {(formData[f.id] || []).map((v: string) => <span key={v} className="bg-slate-50 text-slate-600 text-[10px] px-2 py-0.5 rounded border border-slate-100">{v}</span>)}
-                                            </div>
-                                        ) : (formData[f.id] === true ? 'Oui' : (formData[f.id] === false ? 'Non' : (formData[f.id] || <span className="text-slate-300 font-medium italic">Non renseigné</span>)))}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ))
-              ))}
-              <div className="p-8 bg-indigo-50/30 text-center">
+            <div className="space-y-6">
+              {renderAnswersRecap()}
+              <div className="p-8 bg-indigo-50/30 text-center rounded-3xl border border-slate-200">
                   <p className="text-xs text-slate-500 font-medium italic">
                       En cliquant sur le bouton ci-dessous, vos réponses seront enregistrées et la DSI sera immédiatement notifiée pour préparer le matériel et les accès.
                   </p>

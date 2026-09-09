@@ -237,6 +237,11 @@ model OnboardingTask {
   responsable_mail String?
   delay_days       Int        @default(0)
   task_token       String?    @unique
+  // Date d'émission du task_token (fixée à la création, rafraîchie à chaque
+  // relance manuelle — cf. /api/onboarding/tasks/[id]/resend) : le lien
+  // d'acquittement public envoyé par mail n'est valable qu'un mois à partir
+  // de cette date (cf. TASK_TOKEN_VALIDITY_DAYS dans src/lib/onboarding.ts).
+  token_created_at DateTime   @default(now())
   date_completion  DateTime?
   commentaire      String?
   // Destinataire de la tâche : 'email' (comportement historique, lien

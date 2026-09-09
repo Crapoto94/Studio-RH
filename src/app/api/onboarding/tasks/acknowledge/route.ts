@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { notifyManagerCompletion } from '@/lib/onboarding'
+import { notifyManagerCompletion, isTaskTokenExpired } from '@/lib/onboarding'
 
 // GET: Récupère les infos de la tâche via son token
 export async function GET(req: NextRequest) {
@@ -25,11 +25,21 @@ export async function GET(req: NextRequest) {
 
     if (!task) return NextResponse.json({ error: 'Tâche non trouvée' }, { status: 404 })
 
+    // Une tâche déjà acquittée reste consultable même après expiration du
+    // lien : on affiche simplement l'état (date/commentaire), sans permettre
+    // de ré-acquitter. Seule une tâche encore en attente est bloquée par un
+    // lien expiré (cf. POST ci-dessous).
+    if (!task.done && isTaskTokenExpired(task.token_created_at)) {
+      return NextResponse.json({ error: 'Ce lien a expiré (validité 1 mois). Demandez un renvoi de la tâche.', expired: true }, { status: 410 })
+    }
+
     return NextResponse.json({
       titre: task.titre,
       agent_nom: task.onboarding.agent?.nom || task.onboarding.nom_temp,
       agent_prenom: task.onboarding.agent?.prenom || task.onboarding.prenom_temp,
-      done: task.done
+      done: task.done,
+      commentaire: task.commentaire,
+      date_completion: task.date_completion
     })
 
   } catch (error) {
@@ -58,6 +68,10 @@ export async function POST(req: NextRequest) {
 
     if (task.done) {
       return NextResponse.json({ error: 'Cette tâche a déjà été validée' }, { status: 400 })
+    }
+
+    if (isTaskTokenExpired(task.token_created_at)) {
+      return NextResponse.json({ error: 'Ce lien a expiré (validité 1 mois). Demandez un renvoi de la tâche.', expired: true }, { status: 410 })
     }
 
     // 2. Mettre à jour la tâche

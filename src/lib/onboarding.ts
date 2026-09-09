@@ -3,6 +3,17 @@ import { sendEmailWithTemplate } from '@/lib/api-ville'
 import { generateOnboardingPDF } from './pdf'
 import { randomUUID } from 'crypto'
 
+// Durée de validité du lien public d'acquittement de tâche (task_token),
+// envoyé par mail sans authentification — cf. OnboardingTask.token_created_at.
+export const TASK_TOKEN_VALIDITY_DAYS = 30
+
+export function isTaskTokenExpired(tokenCreatedAt: Date | string | null | undefined): boolean {
+  if (!tokenCreatedAt) return false
+  const issued = new Date(tokenCreatedAt).getTime()
+  const limit = issued + TASK_TOKEN_VALIDITY_DAYS * 24 * 60 * 60 * 1000
+  return Date.now() > limit
+}
+
 /**
  * Pousse une tâche d'onboarding marquée "Tâche DSI Hub" (recipient_type =
  * 'dsihub') vers AppDSI, rattachée au ticket qui a déclenché cet onboarding
@@ -78,6 +89,49 @@ export async function markDsihubTicketInProgress(dsihubTicketId: number): Promis
     }
   } catch (e: any) {
     console.error('[ONBOARDING-DSIHUB-STATUS-ERROR]', e.message)
+  }
+}
+
+/**
+ * Signale à AppDSI qu'une tâche DSI Hub a été (dés)acquittée côté Studio-RH
+ * (dashboard interne), pour que la tâche miroir dans DSI Hub reflète le même
+ * état — pendant du callback inverse (AppDSI -> PATCH /api/onboarding/tasks/
+ * [id] avec x-api-key) qui acquitte ici quand c'est fait côté DSI Hub. Best
+ * effort, ne doit jamais faire échouer l'acquittement local.
+ *
+ * Contrat côté AppDSI (confirmé) :
+ *   PATCH {DSIHUB_API_URL}/tasks/external/rh-studio/task-completed
+ *   { dsihub_task_id, done, commentaire }
+ */
+export async function notifyDsihubTaskCompleted(params: {
+  dsihubTaskId: number
+  done: boolean
+  commentaire?: string | null
+}): Promise<void> {
+  try {
+    const urlParam = await prismaLocal.parametre.findUnique({ where: { cle: 'DSIHUB_API_URL' } })
+    const keyParam = await prismaLocal.parametre.findUnique({ where: { cle: 'DSIHUB_API_KEY' } })
+    const baseUrl = urlParam?.valeur || 'http://10.103.130.106:3001/api'
+    const apiKey = keyParam?.valeur
+    if (!apiKey) {
+      console.error('[ONBOARDING-DSIHUB-TASK-SYNC] DSIHUB_API_KEY non configurée (/parametres)')
+      return
+    }
+    const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/tasks/external/rh-studio/task-completed`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+      body: JSON.stringify({
+        dsihub_task_id: params.dsihubTaskId,
+        done: params.done,
+        commentaire: params.commentaire || null,
+      }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      console.error('[ONBOARDING-DSIHUB-TASK-SYNC] échec', res.status, data)
+    }
+  } catch (e: any) {
+    console.error('[ONBOARDING-DSIHUB-TASK-SYNC-ERROR]', e.message)
   }
 }
 

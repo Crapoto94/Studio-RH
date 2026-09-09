@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { notifyManagerCompletion } from '@/lib/onboarding'
+import { notifyManagerCompletion, notifyDsihubTaskCompleted } from '@/lib/onboarding'
 import { authenticateApiRequest } from '@/lib/api-auth'
 
 export async function PATCH(
@@ -13,6 +13,11 @@ export async function PATCH(
     // Clé API (permission read_write — AppDSI acquittant une tâche DSI Hub
     // terminée) OU session NextAuth.
     const apiKey = req.headers.get('x-api-key')
+    // La requête vient-elle d'AppDSI (callback DSIHub -> Studio-RH) ou du
+    // dashboard interne (session utilisateur) ? Détermine si on doit répercuter
+    // l'acquittement vers DSIHub ci-dessous — sinon on créerait un aller-retour
+    // infini entre les deux systèmes.
+    const isDsihubCallback = !!apiKey
     if (apiKey) {
       const authResult = await authenticateApiRequest(req, 'read_write')
       if (!authResult.authorized) return NextResponse.json({ error: authResult.error }, { status: 401 })
@@ -34,6 +39,17 @@ export async function PATCH(
         date_completion: body.done === true ? new Date() : (body.done === false ? null : undefined)
       }
     })
+
+    // 1bis. Acquittement (dés)fait depuis le dashboard Studio-RH sur une tâche
+    // DSI Hub : on répercute l'état vers AppDSI pour que la tâche miroir soit
+    // acquittée dans les deux environnements (best effort).
+    if (!isDsihubCallback && body.hasOwnProperty('done') && updated.recipient_type === 'dsihub' && updated.dsihub_task_id) {
+      notifyDsihubTaskCompleted({
+        dsihubTaskId: updated.dsihub_task_id,
+        done: updated.done,
+        commentaire: updated.commentaire,
+      }).catch(() => {})
+    }
 
     // 2. Récupérer l'état actuel de l'onboarding pour détecter la transition
     const onboarding = await (prisma.onboarding as any).findUnique({

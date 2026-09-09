@@ -31,6 +31,13 @@ export async function POST(
       return NextResponse.json({ error: 'Aucun responsable mail défini pour cette tâche' }, { status: 400 })
     }
 
+    // Une relance manuelle réarme la validité du lien (1 mois à compter
+    // d'aujourd'hui), pour ne pas renvoyer un lien qui expire aussitôt.
+    await (prisma as any).onboardingTask.update({
+      where: { id: taskId },
+      data: { token_created_at: new Date() }
+    })
+
     const onboarding = task.onboarding
     const agentName = onboarding.agent ? `${onboarding.agent.prenom} ${onboarding.agent.nom}` : `${onboarding.prenom_temp} ${onboarding.nom_temp}`
     

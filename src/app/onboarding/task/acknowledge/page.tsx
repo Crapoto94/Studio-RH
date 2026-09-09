@@ -11,6 +11,7 @@ function AcknowledgeContent() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [expired, setExpired] = useState(false)
   const [task, setTask] = useState<any>(null)
   const [commentaire, setCommentaire] = useState('')
   const [success, setSuccess] = useState(false)
@@ -27,6 +28,7 @@ function AcknowledgeContent() {
       .then(data => {
         if (data.error) {
           setError(data.error)
+          setExpired(!!data.expired)
         } else {
           setTask(data)
           if (data.done) setSuccess(true)
@@ -50,7 +52,14 @@ function AcknowledgeContent() {
       const data = await res.json()
       if (data.error) {
         setError(data.error)
+        setExpired(!!data.expired)
       } else {
+        // Fusion avec la tâche renvoyée par le serveur (date_completion,
+        // commentaire) pour afficher l'heure serveur plutôt que l'horloge
+        // du navigateur, sans perdre agent_nom/agent_prenom (issus du GET).
+        if (data.task) {
+          setTask((prev: any) => ({ ...prev, ...data.task }))
+        }
         setSuccess(true)
       }
     } catch (err) {
@@ -75,28 +84,45 @@ function AcknowledgeContent() {
         <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
           <AlertCircle className="w-8 h-8 text-rose-500" />
         </div>
-        <h1 className="text-2xl font-bold text-slate-800 mb-2">Erreur</h1>
+        <h1 className="text-2xl font-bold text-slate-800 mb-2">{expired ? 'Lien expiré' : 'Erreur'}</h1>
         <p className="text-slate-500 mb-8">{error}</p>
-        <button 
-          onClick={() => window.location.reload()}
-          className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition-all"
-        >
-          Réessayer
-        </button>
+        {!expired && (
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition-all"
+          >
+            Réessayer
+          </button>
+        )}
       </div>
     )
   }
 
   if (success) {
+    // task.done depuis le GET (déjà acquittée avant même cette visite) ou
+    // réponse fraîche du POST : on affiche dans les deux cas la date/heure
+    // et le commentaire d'acquittement, tel que demandé.
+    const completedAt = task?.date_completion ? new Date(task.date_completion) : new Date()
+    const shownComment = task?.commentaire ?? commentaire
     return (
       <div className="max-w-md mx-auto mt-20 p-8 bg-white rounded-3xl shadow-xl border border-emerald-100 text-center animate-in fade-in zoom-in duration-500">
         <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
           <CheckCircle2 className="w-8 h-8 text-emerald-500" />
         </div>
         <h1 className="text-2xl font-bold text-slate-800 mb-2">Tâche Confirmée</h1>
-        <p className="text-slate-500 mb-8">
+        <p className="text-slate-500 mb-6">
           La réalisation de la tâche <strong>{task?.titre}</strong> pour <strong>{task?.agent_prenom} {task?.agent_nom}</strong> a bien été enregistrée.
         </p>
+        <div className="p-4 bg-slate-50 rounded-2xl text-left space-y-2 mb-6">
+          <div className="text-xs text-slate-400">
+            Acquittée le <strong className="text-slate-600">{completedAt.toLocaleDateString('fr-FR')} à {completedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</strong>
+          </div>
+          {shownComment && (
+            <div className="text-xs text-slate-500 italic border-t border-slate-200 pt-2">
+              « {shownComment} »
+            </div>
+          )}
+        </div>
         <div className="p-4 bg-slate-50 rounded-2xl text-xs text-slate-400 italic">
           Vous pouvez fermer cette fenêtre.
         </div>
