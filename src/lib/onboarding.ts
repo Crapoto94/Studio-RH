@@ -15,17 +15,23 @@ export function isTaskTokenExpired(tokenCreatedAt: Date | string | null | undefi
 }
 
 /**
- * Pousse une tâche d'onboarding marquée "Tâche DSI Hub" (recipient_type =
- * 'dsihub') vers AppDSI, rattachée au ticket qui a déclenché cet onboarding
- * (Onboarding.dsihub_ticket_id) et affectée au groupe technicien choisi lors
- * du paramétrage du workflow (item.dsihubGroupId). Renvoie l'id de la tâche
- * DSI Hub créée (à stocker dans OnboardingTask.dsihub_task_id pour permettre
- * le rappel d'acquittement automatique), ou null si l'appel échoue — best
- * effort, ne doit jamais faire échouer la génération des tâches d'onboarding.
+ * Pousse une tâche d'onboarding vers AppDSI, rattachée au ticket qui a
+ * déclenché cet onboarding (Onboarding.dsihub_ticket_id). Renvoie l'id de la
+ * tâche DSI Hub créée (à stocker dans OnboardingTask.dsihub_task_id pour
+ * permettre le rappel d'acquittement automatique), ou null si l'appel
+ * échoue — best effort, ne doit jamais faire échouer la génération des
+ * tâches d'onboarding.
+ *
+ * groupId affecte la tâche à un groupe technicien DSI Hub précis (choisi
+ * lors du paramétrage du workflow, item.dsihubGroupId) — omis pour les
+ * tâches générées automatiquement (ex. création de compte logiciel) qui
+ * doivent seulement être visibles dans le ticket, sans affectation
+ * (group_id: null — à confirmer que AppDSI traite bien ce cas comme "non
+ * affectée" plutôt que de rejeter la création).
  */
 export async function pushTaskToDsihub(params: {
   dsihubTicketId: number
-  groupId: number
+  groupId?: number | null
   description: string
   rhStudioTaskId: number
 }): Promise<number | null> {
@@ -44,7 +50,7 @@ export async function pushTaskToDsihub(params: {
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
       body: JSON.stringify({
         ticket_id: params.dsihubTicketId,
-        group_id: params.groupId,
+        group_id: params.groupId ?? null,
         description: params.description,
         rh_studio_task_id: params.rhStudioTaskId,
       }),

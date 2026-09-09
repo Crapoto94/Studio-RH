@@ -400,8 +400,8 @@ export async function POST(req: NextRequest) {
                 if (sw && sw.email_createur) {
                     const taskToken = randomUUID()
                     const taskTitle = `Création de compte logiciel : ${sw.name}`
-                    
-                    await (prisma.onboardingTask as any).create({
+
+                    const createdSoftwareTask = await (prisma.onboardingTask as any).create({
                         data: {
                             onboarding_id: onboarding.id,
                             titre: taskTitle,
@@ -411,6 +411,25 @@ export async function POST(req: NextRequest) {
                             done: false
                         }
                     })
+
+                    // Visible dans le ticket DSI Hub en plus du mail au créateur
+                    // (recipient_type reste 'email', le lien d'acquittement public
+                    // continue de fonctionner ; dsihub_task_id permet en plus le
+                    // rappel d'acquittement automatique depuis DSI Hub). Pas de
+                    // groupe technicien affecté : juste visible, non affectée.
+                    if (onboarding.dsihub_ticket_id) {
+                        const dsihubTaskId = await pushTaskToDsihub({
+                            dsihubTicketId: onboarding.dsihub_ticket_id,
+                            description: taskTitle,
+                            rhStudioTaskId: createdSoftwareTask.id,
+                        })
+                        if (dsihubTaskId) {
+                            await (prisma.onboardingTask as any).update({
+                                where: { id: createdSoftwareTask.id },
+                                data: { dsihub_task_id: dsihubTaskId }
+                            })
+                        }
+                    }
 
                     await sendEmailWithTemplate({
                         to: sw.email_createur,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { notifyManagerCompletion, isTaskTokenExpired } from '@/lib/onboarding'
+import { notifyManagerCompletion, isTaskTokenExpired, notifyDsihubTaskCompleted } from '@/lib/onboarding'
 
 // GET: Récupère les infos de la tâche via son token
 export async function GET(req: NextRequest) {
@@ -83,6 +83,17 @@ export async function POST(req: NextRequest) {
         date_completion: new Date()
       }
     })
+
+    // 2bis. Tâche avec un miroir DSI Hub (ex. création de compte logiciel,
+    // visible dans le ticket) : répercuter l'acquittement vers AppDSI, comme
+    // pour l'acquittement depuis le dashboard interne (best effort).
+    if (updatedTask.dsihub_task_id) {
+      notifyDsihubTaskCompleted({
+        dsihubTaskId: updatedTask.dsihub_task_id,
+        done: true,
+        commentaire: updatedTask.commentaire,
+      }).catch(() => {})
+    }
 
     // 3. Vérifier si toutes les tâches de cet onboarding sont terminées
     const allTasks = await prisma.onboardingTask.findMany({

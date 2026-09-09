@@ -41,9 +41,10 @@ export async function PATCH(
     })
 
     // 1bis. Acquittement (dés)fait depuis le dashboard Studio-RH sur une tâche
-    // DSI Hub : on répercute l'état vers AppDSI pour que la tâche miroir soit
-    // acquittée dans les deux environnements (best effort).
-    if (!isDsihubCallback && body.hasOwnProperty('done') && updated.recipient_type === 'dsihub' && updated.dsihub_task_id) {
+    // ayant un miroir DSI Hub (recipient_type='dsihub', ou tâche logiciel avec
+    // dsihub_task_id) : on répercute l'état vers AppDSI pour que la tâche
+    // miroir soit acquittée dans les deux environnements (best effort).
+    if (!isDsihubCallback && body.hasOwnProperty('done') && updated.dsihub_task_id) {
       notifyDsihubTaskCompleted({
         dsihubTaskId: updated.dsihub_task_id,
         done: updated.done,
