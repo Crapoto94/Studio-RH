@@ -405,12 +405,21 @@ export async function POST(req: NextRequest) {
             const softwareGroupParam = await prismaLocal.parametre.findUnique({ where: { cle: 'DSIHUB_SOFTWARE_TASK_GROUP_ID' } })
             const softwareGroupId = softwareGroupParam?.valeur ? parseInt(softwareGroupParam.valeur, 10) : null
 
+            // Groupe de repli pour les logiciels SANS créateur de compte connu
+            // (champ "Créateur de compte" vide côté DSIHub/MagApp) : sans mail
+            // possible, la tâche disparaissait jusque-là silencieusement (ni
+            // mail, ni ticket, pas même visible dans Studio-RH).
+            const fallbackGroupParam = await prismaLocal.parametre.findUnique({ where: { cle: 'DSIHUB_SOFTWARE_TASK_FALLBACK_GROUP_ID' } })
+            const fallbackGroupId = fallbackGroupParam?.valeur ? parseInt(fallbackGroupParam.valeur, 10) : null
+
             for (const swName of selectedSoftwareNames) {
                 const sw = Array.isArray(dsihubApps) ? dsihubApps.find((app: any) => app.name === swName) : null
-                if (sw && sw.email_createur) {
-                    const taskToken = randomUUID()
-                    const taskTitle = `Création de compte logiciel : ${sw.name}`
+                if (!sw) continue
 
+                const taskTitle = `Création de compte logiciel : ${sw.name}`
+
+                if (sw.email_createur) {
+                    const taskToken = randomUUID()
                     const createdSoftwareTask = await (prisma.onboardingTask as any).create({
                         data: {
                             onboarding_id: onboarding.id,
@@ -454,6 +463,42 @@ export async function POST(req: NextRequest) {
                             VAL_URL: `${publicUrl}/onboarding/task/acknowledge?token=${taskToken}`
                         }
                     }).catch(e => console.error(`[ONBOARDING-PUBLIC-ERROR] Mail fail to ${sw.email_createur} for ${sw.name}`, e))
+                } else {
+                    // Pas de créateur de compte connu : aucun mail possible. On
+                    // crée quand même la tâche (au moins visible dans le
+                    // dashboard Studio-RH) et on la pousse sur le groupe de
+                    // repli DSI Hub si configuré, pour qu'elle soit prise en
+                    // charge malgré l'absence de destinataire mail.
+                    const pushable = !!(onboarding.dsihub_ticket_id && fallbackGroupId)
+                    const createdSoftwareTask = await (prisma.onboardingTask as any).create({
+                        data: {
+                            onboarding_id: onboarding.id,
+                            titre: taskTitle,
+                            responsable_mail: null,
+                            delay_days: 0,
+                            task_token: randomUUID(),
+                            done: false,
+                            recipient_type: pushable ? 'dsihub' : 'email',
+                            dsihub_group_id: pushable ? fallbackGroupId : null,
+                        }
+                    })
+
+                    if (pushable) {
+                        const dsihubTaskId = await pushTaskToDsihub({
+                            dsihubTicketId: onboarding.dsihub_ticket_id!,
+                            groupId: fallbackGroupId!,
+                            description: taskTitle,
+                            rhStudioTaskId: createdSoftwareTask.id,
+                        })
+                        if (dsihubTaskId) {
+                            await (prisma.onboardingTask as any).update({
+                                where: { id: createdSoftwareTask.id },
+                                data: { dsihub_task_id: dsihubTaskId }
+                            })
+                        }
+                    } else {
+                        console.warn(`[ONBOARDING-PUBLIC] Tâche logiciel "${taskTitle}" sans créateur de compte connu et sans groupe de repli configuré (DSIHUB_SOFTWARE_TASK_FALLBACK_GROUP_ID) : visible uniquement dans le dashboard Studio-RH.`)
+                    }
                 }
             }
         } catch (e: any) {

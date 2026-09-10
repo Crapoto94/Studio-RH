@@ -758,14 +758,15 @@ function SimpleInput({ label, dbKey, placeholder, type = 'text' }: {
 }
 
 /**
- * Sélection du groupe technicien DSI Hub par défaut pour les tâches
- * "Création de compte logiciel" (Parametre DSIHUB_SOFTWARE_TASK_GROUP_ID) —
- * même liste de groupes (/api/dsihub/groups) que WorkflowEditorTable, mais
- * un seul choix global plutôt qu'un par tâche de workflow, ces tâches étant
- * générées automatiquement (une par logiciel coché), pas configurées à
- * l'avance une par une.
+ * Sélection d'un groupe technicien DSI Hub, alimentée en direct depuis
+ * /api/dsihub/groups — factorisé pour les deux réglages "tâches logiciel" :
+ * DSIHUB_SOFTWARE_TASK_GROUP_ID (groupe destinataire quand l'application a un
+ * créateur de compte connu) et DSIHUB_SOFTWARE_TASK_FALLBACK_GROUP_ID
+ * (groupe de repli quand aucune adresse mail n'est définie pour
+ * l'application — sans quoi la tâche n'était ni envoyée par mail ni
+ * remontée dans le ticket : elle disparaissait silencieusement).
  */
-function DsihubSoftwareTaskGroupSelect() {
+function DsihubGroupSelect({ label, dbKey, emptyLabel }: { label: string, dbKey: string, emptyLabel: string }) {
   const { data: params = {} } = useParametres()
   const queryClient = useQueryClient()
   const [groups, setGroups] = useState<{ id: number, name: string }[]>([])
@@ -781,7 +782,7 @@ function DsihubSoftwareTaskGroupSelect() {
     mutationFn: async (value: string) => {
       await fetch('/api/parametres', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'DSIHUB_SOFTWARE_TASK_GROUP_ID', value })
+        body: JSON.stringify({ key: dbKey, value })
       })
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['parametres'] })
@@ -789,13 +790,13 @@ function DsihubSoftwareTaskGroupSelect() {
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-      <label className="sm:w-56 text-sm font-medium text-slate-600 shrink-0">Groupe DSI Hub (tâches logiciel)</label>
+      <label className="sm:w-56 text-sm font-medium text-slate-600 shrink-0">{label}</label>
       <select
-        value={params['DSIHUB_SOFTWARE_TASK_GROUP_ID'] || ''}
+        value={params[dbKey] || ''}
         onChange={e => save.mutate(e.target.value)}
         className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-indigo-400 transition-colors"
       >
-        <option value="">— Aucun (pas de remontée dans le ticket) —</option>
+        <option value="">{emptyLabel}</option>
         {groups.map(g => <option key={g.id} value={String(g.id)}>{g.name}</option>)}
       </select>
     </div>
@@ -1057,12 +1058,30 @@ function DsihubSection() {
         </div>
 
         <div className="max-w-2xl">
-          <DsihubSoftwareTaskGroupSelect />
+          <DsihubGroupSelect
+            label="Groupe DSI Hub (tâches logiciel)"
+            dbKey="DSIHUB_SOFTWARE_TASK_GROUP_ID"
+            emptyLabel="— Aucun (pas de remontée dans le ticket) —"
+          />
           <p className="text-[10px] text-slate-400 mt-1 ml-0 sm:ml-60">
             Groupe technicien DSI Hub auquel affecter les tâches "Création de compte logiciel" générées automatiquement
-            (logiciels métiers cochés par le manager). AppDSI exige un groupe pour créer une tâche dans un ticket
-            (impossible de la laisser "non affectée mais visible") — sans ce réglage, ces tâches restent envoyées par
-            mail au créateur du logiciel mais n'apparaissent pas dans le ticket.
+            (logiciels métiers cochés par le manager, avec un créateur de compte connu). AppDSI exige un groupe pour
+            créer une tâche dans un ticket (impossible de la laisser "non affectée mais visible") — sans ce réglage,
+            ces tâches restent envoyées par mail au créateur du logiciel mais n'apparaissent pas dans le ticket.
+          </p>
+        </div>
+
+        <div className="max-w-2xl">
+          <DsihubGroupSelect
+            label="Groupe de repli (sans créateur connu)"
+            dbKey="DSIHUB_SOFTWARE_TASK_FALLBACK_GROUP_ID"
+            emptyLabel="— Aucun (tâche non créée si pas de mail) —"
+          />
+          <p className="text-[10px] text-slate-400 mt-1 ml-0 sm:ml-60">
+            Groupe technicien DSI Hub auquel affecter la tâche "Création de compte logiciel" quand l'application
+            n'a AUCUNE adresse mail de créateur renseignée (champ "Créateur de compte" vide ci-dessus). Sans ce
+            réglage, ces tâches ne sont ni envoyées par mail ni remontées dans le ticket : elles disparaissent
+            silencieusement — seule la tâche visible dans le tableau de bord Studio-RH en garde la trace.
           </p>
         </div>
 
