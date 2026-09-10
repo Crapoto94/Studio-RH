@@ -500,6 +500,7 @@ function SqlZone() {
   const [note, setNote] = useState<string>('')
   const [source, setSource] = useState<SqlSource>('oracle')
   const [currentType, setCurrentType] = useState<'rh' | 'hierarchie' | null>(null)
+  const [search, setSearch] = useState('')
 
   const SOURCE_OPTIONS: { value: SqlSource; label: string; icon: string; color: string }[] = [
     { value: 'oracle', label: 'Oracle (API Ville)', icon: '🏛️', color: 'indigo' },
@@ -512,6 +513,7 @@ function SqlZone() {
     setCurrentType(type)
     setTables([])
     setNote('')
+    setSearch('')
     try {
       const url = source === 'oracle'
         ? `/api/sql/views?type=${type}&source=oracle`
@@ -543,9 +545,14 @@ function SqlZone() {
     setTables([])
     setCurrentType(null)
     setNote('')
+    setSearch('')
   }
 
   const activeColor = SOURCE_OPTIONS.find(s => s.value === source)?.color || 'indigo'
+
+  const filteredTables = search.trim()
+    ? tables.filter(t => t.toLowerCase().includes(search.trim().toLowerCase()))
+    : tables
 
   return (
     <div className="mt-8 pt-6 border-t border-slate-200">
@@ -614,20 +621,35 @@ function SqlZone() {
       {/* Liste des tables / vues */}
       {tables.length > 0 && (
         <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex justify-between items-center mb-3">
-             <span className="text-xs font-semibold text-indigo-700 uppercase">
-               {tables.length} table{tables.length > 1 ? 's' : ''} trouvée{tables.length > 1 ? 's' : ''} ({source} / {currentType}) — Cliquer pour sélectionner :
+          <div className="flex justify-between items-center mb-3 gap-3">
+             <span className="text-xs font-semibold text-indigo-700 uppercase whitespace-nowrap">
+               {filteredTables.length}{filteredTables.length !== tables.length ? ` / ${tables.length}` : ''} table{filteredTables.length > 1 ? 's' : ''} ({source} / {currentType})
              </span>
-             <button onClick={() => { setTables([]); setNote('') }} className="text-xs text-indigo-400 hover:text-indigo-600">Fermer</button>
+             <button onClick={() => { setTables([]); setNote(''); setSearch('') }} className="text-xs text-indigo-400 hover:text-indigo-600 whitespace-nowrap">Fermer</button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1">
-            {tables.map(v => (
-              <button key={v} onClick={() => saveView(v)}
-                className="text-left px-3 py-2 bg-white border border-indigo-200 rounded-lg text-sm hover:border-indigo-500 hover:bg-indigo-100 transition-all truncate font-mono">
-                {v}
-              </button>
-            ))}
+          <div className="relative mb-3">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-300" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filtrer par nom…"
+              autoFocus
+              className="w-full pl-9 pr-3 py-2 text-sm font-mono bg-white border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
           </div>
+          {filteredTables.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1">
+              {filteredTables.map(v => (
+                <button key={v} onClick={() => saveView(v)}
+                  className="text-left px-3 py-2 bg-white border border-indigo-200 rounded-lg text-sm hover:border-indigo-500 hover:bg-indigo-100 transition-all truncate font-mono">
+                  {v}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-indigo-400 italic px-1">Aucune table ne correspond à « {search} ».</p>
+          )}
         </div>
       )}
     </div>

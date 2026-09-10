@@ -64,10 +64,12 @@ export async function GET(req: NextRequest) {
       }
       const targetUrl = `${base}/v1/oracle/query`
 
-      // Requête Oracle pour lister les vues du schéma RH
-      const sql = type === 'rh'
-        ? "SELECT object_name as NAME FROM all_objects WHERE object_type IN ('VIEW','TABLE') AND owner = 'RH' ORDER BY object_name ASC"
-        : "SELECT object_name as NAME FROM all_objects WHERE object_type IN ('VIEW','TABLE') AND owner = 'RH' AND object_name LIKE '%HIER%' ORDER BY object_name ASC"
+      // Requête Oracle pour lister les vues du schéma RH.
+      // Même liste complète pour les deux types (comme pour l'import RH) : un filtre
+      // "LIKE '%HIER%'" excluait auparavant les tables/vues de hiérarchie dont le nom
+      // ne contient pas littéralement "HIER" (ex. rh_siim_organigramme), ne laissant
+      // apparaître qu'une poignée de résultats.
+      const sql = "SELECT object_name as NAME FROM all_objects WHERE object_type IN ('VIEW','TABLE') AND owner = 'RH' ORDER BY object_name ASC"
 
       const res = await fetch(targetUrl, {
         method: 'POST',
