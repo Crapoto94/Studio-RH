@@ -15,6 +15,7 @@ export const useHierarchie = () => {
   return {
     items: data?.items || [],
     levels: data?.levels || [],
+    acronymes: data?.acronymes || [],
     isLoading,
     error,
     refetch

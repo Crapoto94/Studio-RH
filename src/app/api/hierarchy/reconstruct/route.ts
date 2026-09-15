@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { resolveAcronyme } from '@/lib/utils'
 
 export async function POST(req: NextRequest) {
   try {
@@ -125,7 +126,54 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 6. Supprimer les chemins obsolètes (absents des données brutes actuelles)
+    // 6. Upsert des acronymes par entité (dg / direction / service / secteur / affect).
+    // On cherche un acronyme déjà présent dans le libellé, sinon on en génère un ;
+    // une fois modifié à la main par l'utilisateur (modifie=true), on ne l'écrase plus.
+    const acronymeEntries: { type: string; code: string; nom: string }[] = []
+    const seenAcronymeKeys = new Set<string>()
+    for (const r of enrichedData) {
+      const candidates: [string, string | null | undefined, string | null | undefined][] = [
+        ['dg', r.code_dg_cab, r.nom_dg_cab_l],
+        ['direction', r.code_direction, r.nom_direction_l],
+        ['service', r.code_service, r.nom_service_l],
+        ['secteur', r.code_secteur, r.nom_secteur_l],
+        ['affect', r.code_affect, r.nom_affect_l],
+      ]
+      for (const [type, code, nom] of candidates) {
+        if (!code) continue
+        const key = `${type}-${code}`
+        if (seenAcronymeKeys.has(key)) continue
+        seenAcronymeKeys.add(key)
+        acronymeEntries.push({ type, code, nom: nom || '' })
+      }
+    }
+
+    let acronymesCreated = 0
+    for (const { type, code, nom } of acronymeEntries) {
+      const existing = await prisma.hierarchieAcronyme.findUnique({
+        where: { type_code: { type, code } }
+      })
+
+      if (!existing) {
+        await prisma.hierarchieAcronyme.create({
+          data: { type, code, nom, acronyme: resolveAcronyme(nom) || code, modifie: false }
+        })
+        acronymesCreated++
+      } else if (!existing.modifie) {
+        await prisma.hierarchieAcronyme.update({
+          where: { id: existing.id },
+          data: { nom, acronyme: resolveAcronyme(nom) || existing.acronyme }
+        })
+      } else if (existing.nom !== nom) {
+        // Acronyme protégé (modifié manuellement) : on rafraîchit seulement le libellé source
+        await prisma.hierarchieAcronyme.update({
+          where: { id: existing.id },
+          data: { nom }
+        })
+      }
+    }
+
+    // 7. Supprimer les chemins obsolètes (absents des données brutes actuelles)
     const validKeys = new Set(uniquePaths.keys())
     const allExisting = await prisma.refHierarchie.findMany({
       select: {
@@ -154,7 +202,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Reconstruction terminée : ${uniquePaths.size} chemins traités, ${createdCount} nouveaux créés, ${deletedCount} obsolètes supprimés.`,
+      message: `Reconstruction terminée : ${uniquePaths.size} chemins traités, ${createdCount} nouveaux créés, ${deletedCount} obsolètes supprimés, ${acronymesCreated} acronymes générés.`,
       count: uniquePaths.size
     })
 

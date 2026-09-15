@@ -1,26 +1,31 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronRight, ChevronDown, Building, Users, FolderTree, Layers } from 'lucide-react'
+import { ChevronRight, ChevronDown, Building, Users, FolderTree, Layers, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 
+// Correspond à l'ordre des niveaux dans TreeLevel (0=dg, 1=direction, 2=service, 3=secteur, 4=affect)
+const ACRONYME_TYPES = ['dg', 'direction', 'service', 'secteur', 'affect']
+
 interface TreeProps {
   items: any[]
+  acronymes?: any[]
+  onEditAcronyme?: (entityType: string, code: string, nom: string, acronyme: string) => void
 }
 
-export function HierarchieTree({ items }: TreeProps) {
+export function HierarchieTree({ items, acronymes = [], onEditAcronyme }: TreeProps) {
   if (items.length === 0) {
     return <div className="text-slate-400 italic text-sm p-4">Arborescence vide. Lancez la reconstruction.</div>
   }
 
   // On identifie les "racines" : les items qui ont le plus haut niveau de hiérarchie rempli.
   // Ordre de priorité pour la racine : DG -> Direction -> Service -> Secteur -> Affectation
-  
+
   const getRoots = () => {
     const dgs = Array.from(new Set(items.map(i => i.code_dg_cab).filter(c => c && c !== ''))).sort()
     if (dgs.length > 0) return { level: 0, codes: dgs }
-    
+
     const dirs = Array.from(new Set(items.map(i => i.code_direction).filter(c => c && c !== ''))).sort()
     if (dirs.length > 0) return { level: 1, codes: dirs }
 
@@ -41,8 +46,8 @@ export function HierarchieTree({ items }: TreeProps) {
           if (startLevel === 2) return i.code_service === code
           return true
         })
-        const label = startLevel === 0 ? rootItems[0].nom_dg_cab_l : 
-                      startLevel === 1 ? rootItems[0].nom_direction_l : 
+        const label = startLevel === 0 ? rootItems[0].nom_dg_cab_l :
+                      startLevel === 1 ? rootItems[0].nom_direction_l :
                       rootItems[0].nom_service_l
 
         return (
@@ -53,6 +58,8 @@ export function HierarchieTree({ items }: TreeProps) {
             level={startLevel}
             items={items}
             currentItems={rootItems}
+            acronymes={acronymes}
+            onEditAcronyme={onEditAcronyme}
           />
         )
       })}
@@ -60,8 +67,9 @@ export function HierarchieTree({ items }: TreeProps) {
   )
 }
 
-function TreeLevel({ code, label, level, items, currentItems }: {
-  code: string, label: string, level: number, items: any[], currentItems: any[]
+function TreeLevel({ code, label, level, items, currentItems, acronymes, onEditAcronyme }: {
+  code: string, label: string, level: number, items: any[], currentItems: any[],
+  acronymes: any[], onEditAcronyme?: (entityType: string, code: string, nom: string, acronyme: string) => void
 }) {
   const [expanded, setExpanded] = useState(level < 1)
 
@@ -138,6 +146,14 @@ function TreeLevel({ code, label, level, items, currentItems }: {
 
         <span className="truncate flex-1">{label}</span>
 
+        <AcronymeBadge
+          entityType={ACRONYME_TYPES[level]}
+          code={code}
+          nom={label}
+          acronymes={acronymes}
+          onEditAcronyme={onEditAcronyme}
+        />
+
         {hasChildren && (
           <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-400 font-normal">
             {children.length}
@@ -155,10 +171,71 @@ function TreeLevel({ code, label, level, items, currentItems }: {
               level={level + 1}
               items={items}
               currentItems={child.childItems}
+              acronymes={acronymes}
+              onEditAcronyme={onEditAcronyme}
             />
           ))}
         </div>
       )}
     </div>
+  )
+}
+
+function AcronymeBadge({ entityType, code, nom, acronymes, onEditAcronyme }: {
+  entityType: string, code: string, nom: string, acronymes: any[],
+  onEditAcronyme?: (entityType: string, code: string, nom: string, acronyme: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const record = acronymes.find(a => a.type === entityType && a.code === code)
+
+  if (!onEditAcronyme) {
+    return record?.acronyme
+      ? <Badge variant="outline" className="text-[10px] border-indigo-200 text-indigo-500 font-semibold shrink-0">{record.acronyme}</Badge>
+      : null
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={value}
+        onClick={(e) => e.stopPropagation()}
+        onChange={(e) => setValue(e.target.value.toUpperCase())}
+        onBlur={() => {
+          setEditing(false)
+          if (value && value !== record?.acronyme) onEditAcronyme(entityType, code, nom, value)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+        className="w-16 h-5 px-1 text-[10px] font-semibold text-center border border-indigo-300 rounded outline-none focus:ring-1 focus:ring-indigo-400"
+      />
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      title="Modifier l'acronyme"
+      onClick={(e) => {
+        e.stopPropagation()
+        setValue(record?.acronyme || '')
+        setEditing(true)
+      }}
+      className="shrink-0"
+    >
+      {record?.acronyme ? (
+        <Badge variant="outline" className="text-[10px] border-indigo-200 text-indigo-500 font-semibold hover:bg-indigo-50 flex items-center gap-1">
+          {record.acronyme}
+          <Pencil size={9} className="opacity-0 group-hover:opacity-60" />
+        </Badge>
+      ) : (
+        <Badge variant="outline" className="text-[10px] border-dashed border-slate-300 text-slate-300 hover:text-slate-400 hover:border-slate-400 font-normal">
+          + acronyme
+        </Badge>
+      )}
+    </button>
   )
 }

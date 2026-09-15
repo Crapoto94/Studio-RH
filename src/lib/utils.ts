@@ -94,3 +94,38 @@ export function formatDate(date: string | Date | null | undefined): string {
 export function cn(...inputs: any[]) {
   return inputs.filter(Boolean).join(' ')
 }
+
+// Génération d'acronymes pour la hiérarchie (ex: "Service Infrastructure Réseaux et Systèmes" -> "SIRS")
+const ACRONYME_STOPWORDS = new Set([
+  'et', 'de', 'des', 'du', 'la', 'le', 'les', 'l', 'd', 'a', 'à', 'aux',
+  'en', 'un', 'une', 'au', 'dans', 'pour', 'sur', 'par', 'ou',
+])
+
+function stripAccents(str: string): string {
+  return str.normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
+// Cherche un acronyme déjà présent dans le nom, ex: "Direction des Systèmes d'Information (DSI)"
+export function extractAcronyme(nom: string | null | undefined): string | null {
+  if (!nom) return null
+  const match = nom.match(/\(([A-ZÀ-ÖØ-Þ]{2,8})\)\s*$/)
+  return match ? match[1] : null
+}
+
+// Génère un acronyme à partir des initiales des mots significatifs du nom
+export function generateAcronyme(nom: string | null | undefined): string {
+  if (!nom) return ''
+  const words = nom.replace(/\([^)]*\)\s*$/, '').split(/[\s\-'’]+/).filter(Boolean)
+  const letters = words
+    .filter(w => !ACRONYME_STOPWORDS.has(stripAccents(w).toLowerCase()))
+    .map(w => stripAccents(w).charAt(0).toUpperCase())
+    .filter(l => /[A-Z]/.test(l))
+
+  if (letters.length === 0) return stripAccents(nom).replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase()
+  return letters.join('').slice(0, 8)
+}
+
+// Acronyme "trouvé" dans le nom si présent, sinon généré à partir des initiales
+export function resolveAcronyme(nom: string | null | undefined): string {
+  return extractAcronyme(nom) || generateAcronyme(nom)
+}

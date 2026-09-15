@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 
 export default function HierarchiePage() {
-  const { items, levels, isLoading, error, refetch } = useHierarchie()
+  const { items, levels, acronymes, isLoading, error, refetch } = useHierarchie()
   const [search, setSearch] = useState('')
   const [reconstructing, setReconstructing] = useState(false)
 
@@ -42,6 +42,15 @@ export default function HierarchiePage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'level', id, data })
+    })
+    refetch()
+  }
+
+  const updateAcronyme = async (entityType: string, code: string, nom: string, acronyme: string) => {
+    await fetch('/api/hierarchy', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'acronyme', data: { entityType, code, nom, acronyme } })
     })
     refetch()
   }
@@ -119,7 +128,7 @@ export default function HierarchiePage() {
                     Impossible de charger la hiérarchie.
                   </div>
                 ) : (
-                  <HierarchieTree items={filteredItems} />
+                  <HierarchieTree items={filteredItems} acronymes={acronymes} onEditAcronyme={updateAcronyme} />
                 )}
               </div>
             </div>

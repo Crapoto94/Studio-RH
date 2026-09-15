@@ -189,6 +189,23 @@ model RefHierarchie {
   @@map("REF_HIERARCHIE")
 }
 
+model HierarchieAcronyme {
+  id         Int      @id @default(autoincrement())
+  // Type de nœud : 'dg' | 'direction' | 'service' | 'secteur' | 'affect'
+  type       String
+  code       String
+  nom        String?
+  acronyme   String
+  // false tant que l'acronyme a été trouvé/généré automatiquement ; true dès que
+  // l'utilisateur l'a modifié à la main (protège la valeur lors des reconstructions).
+  modifie    Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([type, code])
+  @@map("HIERARCHIE_ACRONYMES")
+}
+
 model HierarchyLevel {
   id              Int      @id @default(autoincrement())
   level           Int      @unique
