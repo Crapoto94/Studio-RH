@@ -125,9 +125,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 6. Supprimer les chemins obsolètes (absents des données brutes actuelles)
+    const validKeys = new Set(uniquePaths.keys())
+    const allExisting = await prisma.refHierarchie.findMany({
+      select: {
+        id: true,
+        code_dg_cab: true,
+        code_direction: true,
+        code_service: true,
+        code_secteur: true,
+        code_affect: true
+      }
+    })
+    const staleIds = allExisting
+      .filter(r => {
+        const key = `${r.code_dg_cab || 'X'}-${r.code_direction || 'X'}-${r.code_service || 'X'}-${r.code_secteur || 'X'}-${r.code_affect || 'X'}`
+        return !validKeys.has(key)
+      })
+      .map(r => r.id)
+
+    let deletedCount = 0
+    if (staleIds.length > 0) {
+      const result = await prisma.refHierarchie.deleteMany({
+        where: { id: { in: staleIds } }
+      })
+      deletedCount = result.count
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Reconstruction terminée : ${uniquePaths.size} chemins traités, ${createdCount} nouveaux créés.`,
+      message: `Reconstruction terminée : ${uniquePaths.size} chemins traités, ${createdCount} nouveaux créés, ${deletedCount} obsolètes supprimés.`,
       count: uniquePaths.size
     })
 
