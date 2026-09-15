@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, User, Loader2, Crown, ArrowUp } from 'lucide-react'
+import { Search, User, Loader2, Crown, ArrowUp, ChevronDown, ChevronRight, CircleCheck, CircleX, CircleAlert } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 
 export function NPlus1Finder() {
@@ -124,8 +124,62 @@ export function NPlus1Finder() {
                   </span>
                 </div>
               )}
+
+              {data?.trace && <TraceDetails trace={data.trace} />}
             </CardContent>
           </Card>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Détail niveau par niveau de la résolution : utile pour comprendre pourquoi un N+1 n'est
+// pas (ou mal) trouvé — règle absente, code sans correspondance dans BRUT_RH, règle SQL en
+// erreur, ou règle qui ne matche personne.
+function TraceDetails({ trace }: { trace: any[] }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="pt-1">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600"
+      >
+        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        Détail de la résolution
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-1.5">
+          {trace.map((step, i) => {
+            const Icon = step.error ? CircleAlert : step.matches?.length > 0 ? CircleCheck : CircleX
+            const color = step.error ? 'text-red-500' : step.matches?.length > 0 ? 'text-emerald-500' : 'text-slate-300'
+            return (
+              <div key={i} className="flex items-start gap-2 text-[11px] px-2 py-1.5 rounded-lg bg-slate-50">
+                <Icon size={13} className={`${color} shrink-0 mt-0.5`} />
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-600">
+                    {step.levelName || step.type} <span className="font-mono text-slate-400">({step.code ?? '—'})</span>
+                  </div>
+                  {!step.code ? (
+                    <div className="text-slate-400">Aucun code pour ce niveau (agent non rattaché).</div>
+                  ) : !step.ruleConfigured ? (
+                    <div className="text-slate-400">Pas de règle "Responsable (SQL)" configurée pour ce niveau.</div>
+                  ) : step.error ? (
+                    <div className="text-red-500">Erreur SQL : {step.error}</div>
+                  ) : step.scopeRowCount === 0 ? (
+                    <div className="text-amber-600">0 ligne trouvée dans BRUT_RH pour ce code (décalage possible entre les codes).</div>
+                  ) : step.matches.length === 0 ? (
+                    <div className="text-slate-400">{step.scopeRowCount} agent(s) sur ce périmètre, aucun ne correspond à la règle.</div>
+                  ) : (
+                    <div className="text-emerald-600">Correspond : {step.matches.join(', ')}</div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

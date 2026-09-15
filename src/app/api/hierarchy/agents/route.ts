@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
       prisma.hierarchyLevel.findUnique({ where: { level: ENTITY_BUSINESS_LEVEL[type] } })
     ])
 
-    const responsables = await resolveResponsablesForNode(level, type, code)
+    const { agents: responsables } = await resolveResponsablesForNode(level, type, code)
     const responsableIds = new Set(responsables.map(r => r.id))
 
     return NextResponse.json({

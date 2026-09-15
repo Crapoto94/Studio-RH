@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { resolveNPlus1 } from '@/lib/responsable'
+import { resolveNPlus1, NPlus1Step } from '@/lib/responsable'
 
 // Résout le N+1 (responsable direct, au sens des règles SQL configurées par niveau) d'un agent.
 export async function GET(req: NextRequest) {
@@ -12,7 +12,8 @@ export async function GET(req: NextRequest) {
     const agent = await prisma.refAgent.findUnique({ where: { id: agentId } })
     if (!agent) return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
 
-    const result = await resolveNPlus1(agent)
+    const trace: NPlus1Step[] = []
+    const result = await resolveNPlus1(agent, trace)
 
     return NextResponse.json({
       agent: {
@@ -34,7 +35,8 @@ export async function GET(req: NextRequest) {
         nom_direction: result.responsable.nom_direction,
         nom_service: result.responsable.nom_service,
         resolvedAt: result.resolvedAt,
-      } : null
+      } : null,
+      trace
     })
   } catch (error) {
     console.error('N+1 Resolution Error:', error)
