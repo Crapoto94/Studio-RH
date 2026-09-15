@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronRight, ChevronDown, Building, Users, FolderTree, Layers, Pencil } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { ChevronRight, ChevronDown, Building, Users, FolderTree, Layers, Pencil, Crown, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 
@@ -72,6 +73,7 @@ function TreeLevel({ code, label, level, items, currentItems, acronymes, onEditA
   acronymes: any[], onEditAcronyme?: (entityType: string, code: string, nom: string, acronyme: string) => void
 }) {
   const [expanded, setExpanded] = useState(level < 1)
+  const [agentsOpen, setAgentsOpen] = useState(false)
 
   // Déterminer les enfants selon le niveau actuel
   let children: { code: string, label: string, childItems: any[] }[] = []
@@ -151,6 +153,8 @@ function TreeLevel({ code, label, level, items, currentItems, acronymes, onEditA
 
         <span className="truncate flex-1">{label}</span>
 
+        <span className="font-mono text-[10px] text-slate-400 shrink-0">{code}</span>
+
         <AcronymeBadge
           entityType={ACRONYME_TYPES[level]}
           code={code}
@@ -164,7 +168,23 @@ function TreeLevel({ code, label, level, items, currentItems, acronymes, onEditA
             {children.length}
           </Badge>
         )}
+
+        <button
+          type="button"
+          title="Voir les agents"
+          onClick={(e) => { e.stopPropagation(); setAgentsOpen(o => !o) }}
+          className={cn(
+            'shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] border transition-colors',
+            agentsOpen ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'border-transparent text-slate-400 hover:bg-slate-100'
+          )}
+        >
+          <Users size={11} />
+        </button>
       </div>
+
+      {agentsOpen && (
+        <AgentsList entityType={ACRONYME_TYPES[level]} code={code} indent={0.5 + (level + 1) * 1.2} />
+      )}
 
       {expanded && hasChildren && (
         <div className="space-y-0.5">
@@ -179,6 +199,56 @@ function TreeLevel({ code, label, level, items, currentItems, acronymes, onEditA
               acronymes={acronymes}
               onEditAcronyme={onEditAcronyme}
             />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Liste des agents rattachés à un nœud de l'arbre (et à ses descendants pour un
+// nœud non-terminal), avec mise en évidence du/des responsable(s) identifié(s)
+// via la règle SQL configurée sur ce niveau (onglet Configuration).
+function AgentsList({ entityType, code, indent }: { entityType: string, code: string, indent: number }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['hierarchy-agents', entityType, code],
+    queryFn: async () => {
+      const res = await fetch(`/api/hierarchy/agents?type=${entityType}&code=${encodeURIComponent(code)}`)
+      if (!res.ok) throw new Error('Erreur récupération agents')
+      return res.json()
+    }
+  })
+
+  return (
+    <div style={{ paddingLeft: `${indent}rem` }} className="pb-1">
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-[11px] text-slate-400 py-1.5 px-2">
+          <Loader2 size={12} className="animate-spin" /> Chargement des agents...
+        </div>
+      ) : error ? (
+        <div className="text-[11px] text-red-400 py-1.5 px-2">Erreur de chargement.</div>
+      ) : data.agents.length === 0 ? (
+        <div className="text-[11px] text-slate-400 italic py-1.5 px-2">Aucun agent.</div>
+      ) : (
+        <div className="space-y-0.5">
+          {data.agents.map((a: any) => (
+            <div
+              key={a.id}
+              className={cn(
+                'flex items-center gap-2 px-2 py-1 rounded-md text-[11px]',
+                a.est_responsable ? 'bg-amber-50 text-amber-800' : 'text-slate-500'
+              )}
+            >
+              <span className="w-4 h-4 flex items-center justify-center shrink-0">
+                {a.est_responsable
+                  ? <Crown size={11} className="text-amber-500" />
+                  : <Users size={11} className="text-slate-300" />}
+              </span>
+              <span className={cn('truncate flex-1', a.est_responsable && 'font-semibold')}>
+                {a.prenom} {a.nom}
+              </span>
+              <span className="truncate text-slate-400 max-w-[40%]">{a.poste_l || a.fonction_l || ''}</span>
+            </div>
           ))}
         </div>
       )}

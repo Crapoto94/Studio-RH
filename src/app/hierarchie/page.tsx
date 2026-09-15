@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { PageHeader } from '@/components/common/PageHeader'
-import { GitBranch, Search, RefreshCw, Settings2, Palette, Database } from 'lucide-react'
+import { GitBranch, Search, RefreshCw, Settings2, Palette, Database, Crown } from 'lucide-react'
 import { useHierarchie } from '@/hooks/useHierarchie'
 import { HierarchieTree } from '@/components/hierarchie/HierarchieTree'
+import { NPlus1Finder } from '@/components/hierarchie/NPlus1Finder'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -79,6 +80,9 @@ export default function HierarchiePage() {
                 </TabsTrigger>
                 <TabsTrigger value="levels" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs px-4">
                   <Settings2 className="mr-2 h-3.5 w-3.5" /> Configuration
+                </TabsTrigger>
+                <TabsTrigger value="n1" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs px-4">
+                  <Crown className="mr-2 h-3.5 w-3.5" /> N+1
                 </TabsTrigger>
               </TabsList>
               
@@ -198,6 +202,13 @@ export default function HierarchiePage() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          </TabsContent>
+
+          {/* === ONGLET N+1 === */}
+          <TabsContent value="n1" className="mt-0 outline-none">
+            <div className="glass-card p-6 border border-slate-200">
+              <NPlus1Finder />
             </div>
           </TabsContent>
         </PageContainer>
