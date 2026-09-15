@@ -34,8 +34,12 @@ COPY --from=builder /app/prisma/local.prisma ./local.prisma
 # Copy selective node_modules for prisma CLI to work in container
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+# Copy schema.prisma (Postgres) outside /app/prisma too, for the same reason as local.prisma:
+# /app/prisma is hidden by the rhstudio_data volume at runtime, so a copy left only there
+# would be stale (whatever was in the volume when it was first created) on every rebuild.
+COPY --from=builder /app/prisma/schema.prisma ./schema.prisma
 
 EXPOSE 3000
 ENV PORT 3000
-# Ensure database schema is up to date, then start the app (use copy outside volume)
-CMD npx prisma db push --schema=./local.prisma --skip-generate --accept-data-loss 2>&1; node server.js
+# Ensure both database schemas are up to date, then start the app (use copies outside the volume)
+CMD npx prisma db push --schema=./schema.prisma --skip-generate --accept-data-loss 2>&1; npx prisma db push --schema=./local.prisma --skip-generate --accept-data-loss 2>&1; node server.js
