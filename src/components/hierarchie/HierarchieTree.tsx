@@ -110,6 +110,11 @@ function TreeLevel({ code, label, level, items, currentItems, acronymes, onEditA
     }))
   }
 
+  // Certaines lignes sources terminent la chaîne en répétant le même code/libellé
+  // au niveau suivant (ex: un secteur sans affectation propre) — on l'ignore pour
+  // éviter d'afficher deux fois la même entité l'une sous l'autre.
+  children = children.filter(child => !(child.code === code && child.label === label))
+
   const hasChildren = children.length > 0
   const iconByLevel = [Building, FolderTree, Users, Layers, Users]
   const colorByLevel = [
