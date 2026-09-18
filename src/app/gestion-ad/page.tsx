@@ -145,6 +145,7 @@ export default function GestionAdPage() {
               <GhostTab 
                 ghostAccounts={ghostAccounts}
                 openAgentDetails={openAgentDetails}
+                refetch={refetch}
               />
             </TabsContent>
 
@@ -152,6 +153,7 @@ export default function GestionAdPage() {
               <WasteTab 
                 licenseWaste={licenseWaste}
                 openAgentDetails={openAgentDetails}
+                refetch={refetch}
               />
             </TabsContent>
 

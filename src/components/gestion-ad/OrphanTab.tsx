@@ -3,7 +3,10 @@ import { ShieldCheck, Link2, ShieldOff, Eye, Search, Square, CheckSquare, Trash2
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Pagination } from '@/components/common/Pagination'
+import { SortableTh } from '@/components/common/SortableTh'
+import { BulkIgnoreModal } from '@/components/common/BulkIgnoreModal'
 import { usePagination } from '@/hooks/usePagination'
+import { useSortable } from '@/hooks/useSortable'
 import { formatDate } from '@/lib/utils'
 
 interface OrphanTabProps {
@@ -28,6 +31,7 @@ export function OrphanTab({
   const [serviceFilter, setServiceFilter] = useState('')
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
   const [isBulkLoading, setIsBulkLoading] = useState(false)
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
 
   const departments = Array.from(
     new Set(unlinkedAds.map(ad => ad.department).filter(Boolean))
@@ -56,8 +60,21 @@ export function OrphanTab({
     return matchesSearch && matchesDirection && matchesService
   })
 
+  const { sorted, sortKey, sortDir, toggleSort } = useSortable(filteredAds, {
+    display_name: { get: (ad: any) => ad.display_name, type: 'string' },
+    department: { get: (ad: any) => ad.department, type: 'string' },
+    company: { get: (ad: any) => ad.company, type: 'string' },
+    enabled: { get: (ad: any) => ad.enabled, type: 'boolean' },
+    when_created: { get: (ad: any) => ad.when_created, type: 'date' },
+  })
+
   const { page, setPage, pageSize, setPageSize, total, totalPages, paginatedItems: paginatedAds } =
-    usePagination(filteredAds)
+    usePagination(sorted)
+
+  const handleSort = (key: string) => {
+    toggleSort(key)
+    setPage(1)
+  }
 
   const toggleSelectAll = () => {
     if (selectedAccounts.length === filteredAds.length) {
@@ -75,10 +92,9 @@ export function OrphanTab({
     )
   }
 
-  const handleBulkIgnore = async () => {
+  const handleBulkIgnore = async (reason: string) => {
     if (selectedAccounts.length === 0) return
-    if (!confirm(`Voulez-vous vraiment exclure ces ${selectedAccounts.length} comptes ?`)) return
-    
+
     setIsBulkLoading(true)
     try {
       const res = await fetch('/api/ad/actions', {
@@ -87,12 +103,13 @@ export function OrphanTab({
         body: JSON.stringify({
           action: 'ignore',
           samAccounts: selectedAccounts,
-          reason: 'Exclusion groupée (Audit AD)'
+          reason: reason || 'Exclusion groupée (Audit AD)'
         })
       })
       if (!res.ok) throw new Error('Erreur lors de l\'exclusion groupée')
-      
+
       setSelectedAccounts([])
+      setIsBulkModalOpen(false)
       refetch()
     } catch (err) {
       console.error(err)
@@ -103,6 +120,7 @@ export function OrphanTab({
   }
 
   return (
+    <>
     <Card className="border-slate-200/60 shadow-xl shadow-slate-200/10 rounded-2xl overflow-hidden">
       <CardHeader className="border-b border-slate-50 bg-white p-6 pb-4">
         <div className="flex justify-between items-center gap-4">
@@ -171,7 +189,7 @@ export function OrphanTab({
                 Annuler
               </button>
               <button 
-                onClick={handleBulkIgnore}
+                onClick={() => setIsBulkModalOpen(true)}
                 disabled={isBulkLoading}
                 className="px-4 py-1.5 bg-white text-indigo-600 rounded-lg text-xs font-black uppercase tracking-tight shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2"
               >
@@ -199,10 +217,10 @@ export function OrphanTab({
                     )}
                   </button>
                 </th>
-                <th className="px-4 py-4">Nom Affiché / Login</th>
-                <th className="px-6 py-4">Direction / Service</th>
-                <th className="px-6 py-4">Statut</th>
-                <th className="px-6 py-4">Créé le</th>
+                <SortableTh label="Nom Affiché / Login" sortKey="display_name" activeKey={sortKey} dir={sortDir} onSort={handleSort} className="px-4 py-4 text-left" />
+                <SortableTh label="Direction / Service" sortKey="department" activeKey={sortKey} dir={sortDir} onSort={handleSort} className="px-6 py-4 text-left" />
+                <SortableTh label="Statut" sortKey="enabled" activeKey={sortKey} dir={sortDir} onSort={handleSort} className="px-6 py-4 text-left" />
+                <SortableTh label="Créé le" sortKey="when_created" activeKey={sortKey} dir={sortDir} onSort={handleSort} className="px-6 py-4 text-left" />
                 <th className="px-8 py-4 text-right">Action</th>
               </tr>
             </thead>
@@ -301,5 +319,13 @@ export function OrphanTab({
         />
       </CardContent>
     </Card>
+    <BulkIgnoreModal
+      open={isBulkModalOpen}
+      onOpenChange={setIsBulkModalOpen}
+      count={selectedAccounts.length}
+      loading={isBulkLoading}
+      onConfirm={handleBulkIgnore}
+    />
+    </>
   )
 }

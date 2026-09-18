@@ -1,7 +1,9 @@
 import { Settings2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Pagination } from '@/components/common/Pagination'
+import { SortableTh } from '@/components/common/SortableTh'
 import { usePagination } from '@/hooks/usePagination'
+import { useSortable } from '@/hooks/useSortable'
 
 interface TechnicalTabProps {
   technicalAccounts: any[]
@@ -9,8 +11,18 @@ interface TechnicalTabProps {
 }
 
 export function TechnicalTab({ technicalAccounts, refetch }: TechnicalTabProps) {
+  const { sorted, sortKey, sortDir, toggleSort } = useSortable(technicalAccounts, {
+    display_name: { get: (ad: any) => ad.display_name, type: 'string' },
+    exclusionReason: { get: (ad: any) => ad.exclusionReason, type: 'string' },
+  })
+
   const { page, setPage, pageSize, setPageSize, total, totalPages, paginatedItems } =
-    usePagination(technicalAccounts)
+    usePagination(sorted)
+
+  const handleSort = (key: string) => {
+    toggleSort(key)
+    setPage(1)
+  }
 
   return (
     <Card className="border-slate-200/60 shadow-xl shadow-slate-200/10 rounded-2xl overflow-hidden border-t-slate-500 border-t-4">
@@ -30,8 +42,8 @@ export function TechnicalTab({ technicalAccounts, refetch }: TechnicalTabProps) 
           <table className="w-full text-left">
             <thead className="bg-slate-50/50 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">
               <tr>
-                <th className="px-8 py-4">Compte AD</th>
-                <th className="px-6 py-4">Raison</th>
+                <SortableTh label="Compte AD" sortKey="display_name" activeKey={sortKey} dir={sortDir} onSort={handleSort} className="px-8 py-4 text-left" />
+                <SortableTh label="Raison" sortKey="exclusionReason" activeKey={sortKey} dir={sortDir} onSort={handleSort} className="px-6 py-4 text-left" />
                 <th className="px-8 py-4 text-right">Action</th>
               </tr>
             </thead>
