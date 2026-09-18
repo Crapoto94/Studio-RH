@@ -16,7 +16,17 @@ export function parseDate(date: any): Date | null {
   
   const dateStr = String(date).trim()
   if (!dateStr || dateStr === 'null' || dateStr === '—') return null
-  
+
+  // Format AD GeneralizedTime : YYYYMMDDHHMMSS.0Z (ex: 20241104094846.0Z)
+  const adTime = dateStr.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/)
+  if (adTime) {
+    const d = new Date(
+      parseInt(adTime[1], 10), parseInt(adTime[2], 10) - 1, parseInt(adTime[3], 10),
+      parseInt(adTime[4], 10), parseInt(adTime[5], 10), parseInt(adTime[6], 10)
+    )
+    if (!isNaN(d.getTime())) return d
+  }
+
   // Format ISO
   if (dateStr.includes('T') || dateStr.includes('-')) {
     const d = new Date(dateStr)

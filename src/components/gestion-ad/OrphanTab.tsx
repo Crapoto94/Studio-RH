@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { ShieldCheck, Link2, ShieldOff, Eye, Search, Square, CheckSquare, Trash2, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Pagination } from '@/components/common/Pagination'
+import { usePagination } from '@/hooks/usePagination'
+import { formatDate } from '@/lib/utils'
 
 interface OrphanTabProps {
   unlinkedAds: any[]
@@ -21,17 +24,40 @@ export function OrphanTab({
   refetch
 }: OrphanTabProps) {
   const [searchQuery, setSearchQuery] = useState('')
+  const [departmentFilter, setDepartmentFilter] = useState('')
+  const [serviceFilter, setServiceFilter] = useState('')
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
   const [isBulkLoading, setIsBulkLoading] = useState(false)
 
+  const departments = Array.from(
+    new Set(unlinkedAds.map(ad => ad.department).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b))
+
+  const services = Array.from(
+    new Set(unlinkedAds.map(ad => ad.company).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b))
+
+  // Le filtrage s'applique à la base totale, la pagination se fait ensuite.
   const filteredAds = unlinkedAds.filter(ad => {
     const query = searchQuery.toLowerCase()
-    return (
+    const matchesSearch =
       ad.display_name?.toLowerCase().includes(query) ||
       ad.sam_account?.toLowerCase().includes(query) ||
       ad.mail?.toLowerCase().includes(query)
-    )
+
+    const matchesDirection =
+      !departmentFilter ||
+      (departmentFilter === '__EMPTY__' ? !ad.department : ad.department === departmentFilter)
+
+    const matchesService =
+      !serviceFilter ||
+      (serviceFilter === '__EMPTY__' ? !ad.company : ad.company === serviceFilter)
+
+    return matchesSearch && matchesDirection && matchesService
   })
+
+  const { page, setPage, pageSize, setPageSize, total, totalPages, paginatedItems: paginatedAds } =
+    usePagination(filteredAds)
 
   const toggleSelectAll = () => {
     if (selectedAccounts.length === filteredAds.length) {
@@ -96,6 +122,38 @@ export function OrphanTab({
           </div>
         </div>
 
+        {/* Filtres Direction / Service */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Direction</label>
+            <select
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-slate-700 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all"
+            >
+              <option value="">Toutes les directions</option>
+              <option value="__EMPTY__">Sans direction</option>
+              {departments.map(dir => (
+                <option key={dir} value={dir}>{dir}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Service</label>
+            <select
+              value={serviceFilter}
+              onChange={(e) => setServiceFilter(e.target.value)}
+              className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-slate-700 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/5 transition-all"
+            >
+              <option value="">Tous les services</option>
+              <option value="__EMPTY__">Sans service</option>
+              {services.map(svc => (
+                <option key={svc} value={svc}>{svc}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {/* Bulk Actions Bar */}
         {selectedAccounts.length > 0 && (
           <div className="mt-4 flex items-center justify-between bg-indigo-600 text-white px-4 py-3 rounded-xl shadow-lg animate-in slide-in-from-top-2 duration-300">
@@ -149,7 +207,7 @@ export function OrphanTab({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredAds.length > 0 ? filteredAds.map((ad: any) => (
+              {paginatedAds.length > 0 ? paginatedAds.map((ad: any) => (
                 <tr 
                   key={ad.id} 
                   className={`hover:bg-indigo-50/10 transition-colors group cursor-pointer ${selectedAccounts.includes(ad.sam_account) ? 'bg-indigo-50/30' : ''}`} 
@@ -190,7 +248,7 @@ export function OrphanTab({
                     )}
                   </td>
                   <td className="px-6 py-5 text-xs text-slate-500">
-                    {ad.when_created || 'N/A'}
+                    {ad.when_created ? formatDate(ad.when_created) : 'N/A'}
                   </td>
                   <td className="px-8 py-4 text-right">
                     <div className="flex justify-end gap-2">
@@ -232,6 +290,15 @@ export function OrphanTab({
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          label="comptes"
+        />
       </CardContent>
     </Card>
   )

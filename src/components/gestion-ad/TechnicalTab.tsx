@@ -1,5 +1,7 @@
 import { Settings2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Pagination } from '@/components/common/Pagination'
+import { usePagination } from '@/hooks/usePagination'
 
 interface TechnicalTabProps {
   technicalAccounts: any[]
@@ -7,6 +9,9 @@ interface TechnicalTabProps {
 }
 
 export function TechnicalTab({ technicalAccounts, refetch }: TechnicalTabProps) {
+  const { page, setPage, pageSize, setPageSize, total, totalPages, paginatedItems } =
+    usePagination(technicalAccounts)
+
   return (
     <Card className="border-slate-200/60 shadow-xl shadow-slate-200/10 rounded-2xl overflow-hidden border-t-slate-500 border-t-4">
       <CardHeader className="border-b border-slate-50 bg-white p-6">
@@ -35,7 +40,7 @@ export function TechnicalTab({ technicalAccounts, refetch }: TechnicalTabProps) 
                 <tr>
                   <td colSpan={3} className="px-8 py-12 text-center text-slate-400 italic text-sm">Aucun compte technique répertorié.</td>
                 </tr>
-              ) : technicalAccounts.map((ad: any) => (
+              ) : paginatedItems.map((ad: any) => (
                 <tr key={ad.sam_account} className="hover:bg-slate-50 transition-colors">
                   <td className="px-8 py-4">
                     <div className="font-bold text-slate-800 text-sm">{ad.display_name}</div>
@@ -67,6 +72,15 @@ export function TechnicalTab({ technicalAccounts, refetch }: TechnicalTabProps) 
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          label="comptes"
+        />
       </CardContent>
     </Card>
   )

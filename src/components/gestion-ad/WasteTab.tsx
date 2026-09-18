@@ -2,6 +2,8 @@ import { Eye } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { AgentAvatar } from '@/components/common/AgentAvatar'
+import { Pagination } from '@/components/common/Pagination'
+import { usePagination } from '@/hooks/usePagination'
 import { formatPrenom } from '@/lib/utils'
 
 interface WasteTabProps {
@@ -10,6 +12,9 @@ interface WasteTabProps {
 }
 
 export function WasteTab({ licenseWaste, openAgentDetails }: WasteTabProps) {
+  const { page, setPage, pageSize, setPageSize, total, totalPages, paginatedItems } =
+    usePagination(licenseWaste)
+
   return (
     <Card className="border-slate-200/60 shadow-xl shadow-slate-200/10 rounded-3xl overflow-hidden border-t-amber-500 border-t-4">
       <CardHeader className="border-b border-slate-50 bg-white p-8">
@@ -33,7 +38,7 @@ export function WasteTab({ licenseWaste, openAgentDetails }: WasteTabProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {licenseWaste.map((item: any, idx: number) => (
+              {paginatedItems.map((item: any, idx: number) => (
                 <tr key={idx} className="hover:bg-amber-50/20 transition-colors group cursor-pointer" onClick={() => openAgentDetails(item.agent || { nom: item.ad.display_name, prenom: '' })}>
                   <td className="px-8 py-4">
                     <div className="flex items-center gap-4">
@@ -71,6 +76,15 @@ export function WasteTab({ licenseWaste, openAgentDetails }: WasteTabProps) {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          label="licences"
+        />
       </CardContent>
     </Card>
   )

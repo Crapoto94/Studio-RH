@@ -1,7 +1,9 @@
 import { BadgeCheck, Eye } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { AgentAvatar } from '@/components/common/AgentAvatar'
-import { formatPrenom } from '@/lib/utils'
+import { Pagination } from '@/components/common/Pagination'
+import { usePagination } from '@/hooks/usePagination'
+import { formatDate, formatPrenom } from '@/lib/utils'
 
 interface GhostTabProps {
   ghostAccounts: any[]
@@ -9,6 +11,9 @@ interface GhostTabProps {
 }
 
 export function GhostTab({ ghostAccounts, openAgentDetails }: GhostTabProps) {
+  const { page, setPage, pageSize, setPageSize, total, totalPages, paginatedItems } =
+    usePagination(ghostAccounts)
+
   return (
     <Card className="border-slate-200/60 shadow-xl shadow-slate-200/10 rounded-3xl overflow-hidden border-t-rose-500 border-t-4">
       <CardHeader className="border-b border-slate-50 bg-white p-8">
@@ -32,7 +37,7 @@ export function GhostTab({ ghostAccounts, openAgentDetails }: GhostTabProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {ghostAccounts.map((item: any, idx: number) => (
+              {paginatedItems.map((item: any, idx: number) => (
                 <tr key={idx} className="hover:bg-rose-50/20 transition-colors group cursor-pointer" onClick={() => openAgentDetails(item.agent)}>
                   <td className="px-8 py-4">
                     <div className="flex items-center gap-4">
@@ -55,7 +60,7 @@ export function GhostTab({ ghostAccounts, openAgentDetails }: GhostTabProps) {
                     </div>
                   </td>
                   <td className="px-6 py-5 text-xs text-slate-500">
-                    {new Date(item.agent.updated_at).toLocaleDateString()}
+                    {formatDate(item.agent.updated_at)}
                   </td>
                   <td className="px-8 py-4 text-right">
                     <button 
@@ -70,6 +75,15 @@ export function GhostTab({ ghostAccounts, openAgentDetails }: GhostTabProps) {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          label="comptes"
+        />
       </CardContent>
     </Card>
   )

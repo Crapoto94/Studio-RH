@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Search, Link2, Loader2, User } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Search, Link2, Loader2, User, Filter, Link2Off } from 'lucide-react'
 import { AgentAvatar } from './AgentAvatar'
 import { formatPrenom } from '@/lib/utils'
 
@@ -14,34 +15,59 @@ interface AgentPickerModalProps {
 
 export function AgentPickerModal({ open, onOpenChange, account, onSuccess }: AgentPickerModalProps) {
   const [search, setSearch] = useState('')
+  const [direction, setDirection] = useState('')
+  const [noAdOnly, setNoAdOnly] = useState(true)
   const [agents, setAgents] = useState<any[]>([])
+  const [count, setCount] = useState(0)
   const [loading, setLoading] = useState(false)
   const [linking, setLinking] = useState<number | null>(null)
+  const [directions, setDirections] = useState<string[]>([])
 
-  const fetchAgents = async (term: string) => {
-    if (!term || term.length < 2) {
-      setAgents([])
-      return
-    }
+  const fetchAgents = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/agents?search=${encodeURIComponent(term)}&limit=10`)
+      const params = new URLSearchParams()
+      if (search.trim().length >= 2) params.set('search', search.trim())
+      if (direction) params.set('direction', direction)
+      if (noAdOnly) params.set('noAdOnly', 'true')
+      params.set('limit', '50')
+
+      const res = await fetch(`/api/agents?${params.toString()}`)
       const json = await res.json()
       setAgents(json.data || [])
+      setCount(json.count || 0)
     } catch (err) {
       console.error(err)
     } finally {
       setLoading(false)
     }
-  }
+  }, [search, direction, noAdOnly])
 
-  // Native debounce with useEffect
+  // Liste des directions disponibles
+  useEffect(() => {
+    if (!open) return
+    fetch('/api/agents/directions')
+      .then(res => res.json())
+      .then(data => setDirections(Array.isArray(data) ? data : []))
+      .catch(err => console.error(err))
+  }, [open])
+
+  // Reset de la recherche à l'ouverture
+  useEffect(() => {
+    if (open) {
+      setSearch('')
+      setDirection('')
+      setNoAdOnly(true)
+    }
+  }, [open])
+
+  // Debounce : relance la recherche quand un critère change
   useEffect(() => {
     const handler = setTimeout(() => {
-      fetchAgents(search)
+      fetchAgents()
     }, 300)
     return () => clearTimeout(handler)
-  }, [search])
+  }, [fetchAgents])
 
   const handleLink = async (agentId: number) => {
     if (!account) return
@@ -79,7 +105,7 @@ export function AgentPickerModal({ open, onOpenChange, account, onSuccess }: Age
             </DialogHeader>
         </div>
 
-        <div className="p-8 space-y-6">
+        <div className="p-8 space-y-5">
           <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 shadow-inner">
             <div className="text-[10px] font-black uppercase text-indigo-400 tracking-wider mb-1">Compte AD à lier</div>
             <div className="font-bold text-indigo-900">{account?.display_name}</div>
@@ -103,9 +129,37 @@ export function AgentPickerModal({ open, onOpenChange, account, onSuccess }: Age
             )}
           </div>
 
+          <div className="relative">
+            <Filter className="absolute left-4 top-3.5 text-slate-400" size={16} />
+            <select
+              value={direction}
+              onChange={e => setDirection(e.target.value)}
+              className="w-full pl-11 pr-4 py-3 text-sm border-2 border-slate-100 rounded-2xl focus:outline-none focus:border-indigo-500 transition-all font-medium text-slate-700 bg-white appearance-none"
+            >
+              <option value="">Toutes les directions</option>
+              {directions.map(dir => (
+                <option key={dir} value={dir}>{dir}</option>
+              ))}
+            </select>
+          </div>
+
+          <label className="flex items-center gap-3 px-1 cursor-pointer select-none">
+            <Checkbox checked={noAdOnly} onCheckedChange={val => setNoAdOnly(!!val)} />
+            <span className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-tight">
+              <Link2Off size={14} className="text-slate-400" />
+              Uniquement les agents non liés à l'AD
+            </span>
+          </label>
+
+          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1">
+            {loading ? 'Recherche...' : `${count} agent${count > 1 ? 's' : ''} correspondant${count > 1 ? 's' : ''}`}
+          </div>
+
           <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-            {agents.length === 0 && search.length >= 2 && !loading ? (
-              <div className="py-8 text-center text-slate-400 text-sm italic">Aucun agent trouvé pour "{search}"</div>
+            {agents.length === 0 && !loading ? (
+              <div className="py-8 text-center text-slate-400 text-sm italic">
+                {search.trim().length >= 2 ? `Aucun agent trouvé pour "${search}"` : 'Aucun agent trouvé.'}
+              </div>
             ) : agents.map(agent => (
               <div 
                 key={agent.id}
