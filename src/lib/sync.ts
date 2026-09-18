@@ -1,6 +1,7 @@
 import { prisma, prismaLocal } from '@/lib/db'
 import { Client } from 'ldapts'
 import { configureApiVilleTls, formatApiFetchError } from '@/lib/api-error'
+import { rebuildHierarchie } from '@/lib/hierarchy'
 
 type SyncResult = { success: boolean; message: string; stats?: any; errors?: string[] }
 
@@ -17,7 +18,6 @@ export async function runRhSync(): Promise<SyncResult> {
   await updateProgress(5, 'Chargement des données brutes...')
 
   const brutRhRecords = await prisma.brutRh.findMany()
-  const brutHierRecords = await prisma.brutHierarchie.findMany()
 
   const params = await prismaLocal.parametre.findMany()
   const config = Object.fromEntries(params.map(p => [p.cle, p.valeur]))
@@ -151,30 +151,21 @@ export async function runRhSync(): Promise<SyncResult> {
     })
   }
 
-  for (const bh of brutHierRecords) {
-    if (!bh.code_affect) continue
-    const hierData = {
-      nom_affect_l: bh.nom_affect_l,
-      code_secteur: bh.code_secteur,
-      nom_secteur_l: bh.nom_secteur_l,
-      code_service: bh.code_service,
-      nom_service_l: bh.nom_service_l,
-      code_direction: bh.code_direction,
-      nom_direction_l: bh.nom_direction_l,
-      code_dg_cab: bh.code_dg_cab,
-      nom_dg_cab_l: bh.nom_dg_cab_l,
-      plus_vu: new Date().toISOString() as unknown as Date
+  // Reconstruction complète de la hiérarchie : on s'appuie sur le chemin complet
+  // (dg > direction > service > secteur > affectation) et non plus sur le seul
+  // code_affect, qui n'est pas unique et faisait écraser des directions entre elles.
+  try {
+    // Garde-fou : si la table brute est vide (import hiérarchie échoué/ignoré),
+    // on ne reconstruit pas, sinon on supprimerait toute la hiérarchie existante.
+    const hierRawCount = await prisma.brutHierarchie.count()
+    if (hierRawCount > 0) {
+      await updateProgress(90, 'Reconstruction de la hiérarchie...')
+      const hierResult = await rebuildHierarchie()
+      stats.hier.created = hierResult.created
+      stats.hier.updated = hierResult.updated
     }
-    const existing = await prisma.refHierarchie.findFirst({
-      where: { code_affect: bh.code_affect as string }
-    })
-    if (existing) {
-      await prisma.refHierarchie.update({ where: { id: existing.id }, data: hierData })
-      stats.hier.updated++
-    } else {
-      await prisma.refHierarchie.create({ data: { code_affect: bh.code_affect, ...hierData } })
-      stats.hier.created++
-    }
+  } catch (err) {
+    console.error('Error rebuilding hierarchy during RH sync:', err)
   }
 
   const modifiedCount = modifiedAgentsSet.size
