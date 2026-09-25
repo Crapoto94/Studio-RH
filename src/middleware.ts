@@ -30,5 +30,5 @@ export default withAuth(
 // l'acquittement PATCH) afin de ne matcher QUE ces chemins precis et pas
 // leurs sous-routes.
 export const config = {
-  matcher: ['/((?!login|api/auth|api/swagger|api/openapi.json|api/routes|api/agents/presence|api/agents/search$|onboarding/form|onboarding/manager|api/onboarding$|api/onboarding/tasks/[^/]+$|api/onboarding/public|api/onboarding/search-agents|api/onboarding/manager|api/synchro|_next|favicon.ico|unauthorized).*)'],
+  matcher: ['/((?!login|api/auth|api/swagger|api/openapi.json|api/routes|api/agents/presence|api/agents/search$|api/agents/list$|onboarding/form|onboarding/manager|api/onboarding$|api/onboarding/tasks/[^/]+$|api/onboarding/public|api/onboarding/search-agents|api/onboarding/manager|api/synchro|_next|favicon.ico|unauthorized).*)'],
 }
