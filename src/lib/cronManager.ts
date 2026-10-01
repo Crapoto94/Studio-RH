@@ -34,6 +34,13 @@ class CronManager {
 
   private async enqueueJob(jobId: number, type: string, name: string) {
     console.log(`[CRON] Enqueuing job ${jobId} "${name}" (${type})`)
+
+    // Un declenchement remplace le run deja en attente pour ce job : sans ca,
+    // une longue periode d'arret (BD indisponible) ferait repeter des centaines
+    // de fois la meme synchro au redemarrage.
+    const pending = this.jobQueue.findIndex(item => item.jobId === jobId)
+    if (pending !== -1) this.jobQueue.splice(pending, 1)
+
     this.jobQueue.push({ jobId, type, name })
     if (!this.isProcessing) {
       await this.processQueue()
@@ -44,28 +51,44 @@ class CronManager {
     if (this.isProcessing || this.jobQueue.length === 0) return
     this.isProcessing = true
 
-    // Sort queue by display order (newest created_at first, matching the scheduler UI)
-    this.jobQueue.sort((a, b) => {
-      const aOrder = this.jobOrder.get(a.jobId) ?? 0
-      const bOrder = this.jobOrder.get(b.jobId) ?? 0
-      return aOrder - bOrder
-    })
+    try {
+      while (this.jobQueue.length > 0) {
+        // Tri a chaque tour : les jobs enqueues pendant l'execution d'un autre
+        // job doivent eux aussi respecter l'ordre d'affichage du /crons.
+        this.jobQueue.sort((a, b) => {
+          const aOrder = this.jobOrder.get(a.jobId) ?? 0
+          const bOrder = this.jobOrder.get(b.jobId) ?? 0
+          return aOrder - bOrder
+        })
 
-    while (this.jobQueue.length > 0) {
-      const item = this.jobQueue.shift()!
-      await this.executeJob(item.jobId, item.type)
+        const item = this.jobQueue.shift()!
+
+        // Isolation par job : un job en erreur ne doit pas stopper les suivants.
+        try {
+          await this.executeJob(item.jobId, item.type)
+        } catch (e) {
+          console.error(`[CRON] Job ${item.jobId} (${item.type}) a interrompu la file:`, e)
+        }
+      }
+    } finally {
+      // Le verrou doit imperativement etre relache, y compris en cas d'exception :
+      // s'il reste a true, plus aucun job ne sera jamais execute.
+      this.isProcessing = false
     }
-
-    this.isProcessing = false
   }
 
   private async executeJob(jobId: number, type: string) {
     console.log(`[CRON] Executing job ${jobId} of type ${type}`)
 
-    await prismaLocal.cronJob.update({
-      where: { id: jobId },
-      data: { last_run: new Date() }
-    })
+    // last_run reflete le dernier essai, pas le dernier succes.
+    try {
+      await prismaLocal.cronJob.update({
+        where: { id: jobId },
+        data: { last_run: new Date() }
+      })
+    } catch (e) {
+      console.error(`[CRON] Impossible de mettre a jour last_run du job ${jobId}:`, e)
+    }
 
     try {
       let result
@@ -94,14 +117,21 @@ class CronManager {
       console.log(`[CRON] Job ${jobId} (${type}) finished:`, result.message)
     } catch (e) {
       console.error(`[CRON] Job ${jobId} (${type}) failed:`, e)
-      await prisma.synchroLog.create({
-        data: {
-          type: type as any,
-          statut: 'error',
-          message: `Erreur critique automate : ${(e as Error).message}`,
-          progress: 100
-        }
-      })
+
+      // L'ecriture du log ne doit jamais relancer depuis le catch : c'est
+      // precisement ce second echec qui bloquait la file d'attente pour toujours.
+      try {
+        await prisma.synchroLog.create({
+          data: {
+            type: type as any,
+            statut: 'error',
+            message: `Erreur critique automate : ${(e as Error).message}`,
+            progress: 100
+          }
+        })
+      } catch (logError) {
+        console.error(`[CRON] Impossible d'ecrire le log d'erreur du job ${jobId}:`, logError)
+      }
     }
   }
 
